@@ -15,6 +15,7 @@
 		4523E7AE1F14C0F600A4D7BD /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4523E7AC1F14C0F600A4D7BD /* LaunchScreen.storyboard */; };
 		4523E7B91F14C0F600A4D7BD /* HECameraDemoTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7B81F14C0F600A4D7BD /* HECameraDemoTests.m */; };
 		4523E7C41F14C0F600A4D7BD /* HECameraDemoUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7C31F14C0F600A4D7BD /* HECameraDemoUITests.m */; };
+		4523E7D41F14C1E700A4D7BD /* HESimpleCamera.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7D31F14C1E700A4D7BD /* HESimpleCamera.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +52,8 @@
 		4523E7BF1F14C0F600A4D7BD /* HECameraDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HECameraDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4523E7C31F14C0F600A4D7BD /* HECameraDemoUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HECameraDemoUITests.m; sourceTree = "<group>"; };
 		4523E7C51F14C0F600A4D7BD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		4523E7D21F14C1E700A4D7BD /* HESimpleCamera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HESimpleCamera.h; sourceTree = "<group>"; };
+		4523E7D31F14C1E700A4D7BD /* HESimpleCamera.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HESimpleCamera.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +108,7 @@
 				4523E7A21F14C0F600A4D7BD /* AppDelegate.m */,
 				4523E7A41F14C0F600A4D7BD /* ViewController.h */,
 				4523E7A51F14C0F600A4D7BD /* ViewController.m */,
+				4523E7D11F14C1BE00A4D7BD /* HECamera */,
 				4523E7A71F14C0F600A4D7BD /* Main.storyboard */,
 				4523E7AA1F14C0F600A4D7BD /* Assets.xcassets */,
 				4523E7AC1F14C0F600A4D7BD /* LaunchScreen.storyboard */,
@@ -138,6 +142,15 @@
 				4523E7C51F14C0F600A4D7BD /* Info.plist */,
 			);
 			path = HECameraDemoUITests;
+			sourceTree = "<group>";
+		};
+		4523E7D11F14C1BE00A4D7BD /* HECamera */ = {
+			isa = PBXGroup;
+			children = (
+				4523E7D21F14C1E700A4D7BD /* HESimpleCamera.h */,
+				4523E7D31F14C1E700A4D7BD /* HESimpleCamera.m */,
+			);
+			path = HECamera;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -202,11 +215,13 @@
 		4523E7931F14C0F600A4D7BD /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				CLASSPREFIX = HE;
 				LastUpgradeCheck = 0830;
 				ORGANIZATIONNAME = com.weixhe;
 				TargetAttributes = {
 					4523E79A1F14C0F600A4D7BD = {
 						CreatedOnToolsVersion = 8.3.2;
+						DevelopmentTeam = KY78F3P96D;
 						ProvisioningStyle = Automatic;
 					};
 					4523E7B31F14C0F600A4D7BD = {
@@ -276,6 +291,7 @@
 				4523E7A61F14C0F600A4D7BD /* ViewController.m in Sources */,
 				4523E7A31F14C0F600A4D7BD /* AppDelegate.m in Sources */,
 				4523E7A01F14C0F600A4D7BD /* main.m in Sources */,
+				4523E7D41F14C1E700A4D7BD /* HESimpleCamera.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -424,7 +440,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = KY78F3P96D;
 				INFOPLIST_FILE = HECameraDemo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.weixhe.HECameraDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -435,7 +453,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = KY78F3P96D;
 				INFOPLIST_FILE = HECameraDemo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.weixhe.HECameraDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
