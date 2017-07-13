@@ -32,7 +32,22 @@ typedef NS_ENUM(NSUInteger, HECameraMirror) {
     HECameraMirrorAuto,
 };
 
+/*!
+ *   @brief 错误码
+ */
+typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
+    HECameraErrorCodeCameraPermission = 10,
+    HECameraErrorCodeMicrophonePermission = 11,
+    HECameraErrorCodeSession = 12,
+    HECameraErrorCodeVideoNotEnabled = 13
+};
+
 @interface HESimpleCamera : UIViewController
+
+/*!
+ *   @brief 出现错误回调
+ */
+@property (nonatomic, copy) void (^BlockOnError)(HESimpleCamera *camera, NSError *error);
 
 /*!
  *   @brief 图像的质量 {AVCaptureSessionPresetHigh, AVCaptureSessionPresetLow...}
@@ -111,4 +126,31 @@ typedef NS_ENUM(NSUInteger, HECameraMirror) {
  */
 - (instancetype)initWithQuality:(NSString *)quality positon:(HECameraPosition)position videoEnable:(BOOL)videoEnable;
 
+#pragma mark - ViewController
+/*!
+ *   @brief 将图像显示到目标控制器上
+ */
+- (void)attachToViewController:(UIViewController *)viewController withFrame:(CGRect)frame;
+
+#pragma mark - Camera
+
+/*!
+ *   @brief 开始工作，显示图像
+ */
+- (void)start;
+
+/*!
+ *   @brief 结束工作
+ */
+- (void)stop;
+
+#pragma mark - Focus
+/*!
+ *   @brief 添加聚焦框和动画，如果不使用，则使用默认聚焦框
+ */
+- (void)addFocusBox:(CALayer *)layer animation:(CAAnimation *)animation;
+
 @end
+
+
+extern NSString * const HESimpleCameraErrorDomain;

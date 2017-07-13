@@ -16,6 +16,8 @@
 		4523E7B91F14C0F600A4D7BD /* HECameraDemoTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7B81F14C0F600A4D7BD /* HECameraDemoTests.m */; };
 		4523E7C41F14C0F600A4D7BD /* HECameraDemoUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7C31F14C0F600A4D7BD /* HECameraDemoUITests.m */; };
 		4523E7D41F14C1E700A4D7BD /* HESimpleCamera.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7D31F14C1E700A4D7BD /* HESimpleCamera.m */; };
+		45D983ED1F17607700C82C1D /* HESimpleCamera.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 45D983EC1F17607700C82C1D /* HESimpleCamera.bundle */; };
+		45D983F01F1778FB00C82C1D /* HESimpleCamera+Helper.m in Sources */ = {isa = PBXBuildFile; fileRef = 45D983EF1F1778FB00C82C1D /* HESimpleCamera+Helper.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +56,9 @@
 		4523E7C51F14C0F600A4D7BD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		4523E7D21F14C1E700A4D7BD /* HESimpleCamera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HESimpleCamera.h; sourceTree = "<group>"; };
 		4523E7D31F14C1E700A4D7BD /* HESimpleCamera.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HESimpleCamera.m; sourceTree = "<group>"; };
+		45D983EC1F17607700C82C1D /* HESimpleCamera.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = HESimpleCamera.bundle; sourceTree = "<group>"; };
+		45D983EE1F1778FB00C82C1D /* HESimpleCamera+Helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "HESimpleCamera+Helper.h"; sourceTree = "<group>"; };
+		45D983EF1F1778FB00C82C1D /* HESimpleCamera+Helper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "HESimpleCamera+Helper.m"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,8 +152,11 @@
 		4523E7D11F14C1BE00A4D7BD /* HECamera */ = {
 			isa = PBXGroup;
 			children = (
+				45D983EC1F17607700C82C1D /* HESimpleCamera.bundle */,
 				4523E7D21F14C1E700A4D7BD /* HESimpleCamera.h */,
 				4523E7D31F14C1E700A4D7BD /* HESimpleCamera.m */,
+				45D983EE1F1778FB00C82C1D /* HESimpleCamera+Helper.h */,
+				45D983EF1F1778FB00C82C1D /* HESimpleCamera+Helper.m */,
 			);
 			path = HECamera;
 			sourceTree = "<group>";
@@ -262,6 +270,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4523E7AE1F14C0F600A4D7BD /* LaunchScreen.storyboard in Resources */,
+				45D983ED1F17607700C82C1D /* HESimpleCamera.bundle in Resources */,
 				4523E7AB1F14C0F600A4D7BD /* Assets.xcassets in Resources */,
 				4523E7A91F14C0F600A4D7BD /* Main.storyboard in Resources */,
 			);
@@ -290,6 +299,7 @@
 			files = (
 				4523E7A61F14C0F600A4D7BD /* ViewController.m in Sources */,
 				4523E7A31F14C0F600A4D7BD /* AppDelegate.m in Sources */,
+				45D983F01F1778FB00C82C1D /* HESimpleCamera+Helper.m in Sources */,
 				4523E7A01F14C0F600A4D7BD /* main.m in Sources */,
 				4523E7D41F14C1E700A4D7BD /* HESimpleCamera.m in Sources */,
 			);
@@ -527,6 +537,7 @@
 				4523E7CA1F14C0F600A4D7BD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		4523E7CB1F14C0F600A4D7BD /* Build configuration list for PBXNativeTarget "HECameraDemoTests" */ = {
 			isa = XCConfigurationList;
@@ -535,6 +546,7 @@
 				4523E7CD1F14C0F600A4D7BD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		4523E7CE1F14C0F600A4D7BD /* Build configuration list for PBXNativeTarget "HECameraDemoUITests" */ = {
 			isa = XCConfigurationList;
@@ -543,6 +555,7 @@
 				4523E7D01F14C0F600A4D7BD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
