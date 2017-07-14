@@ -45,6 +45,11 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
 @interface HESimpleCamera : UIViewController
 
 /*!
+ *   @brief 设备改变回调
+ */
+@property (nonatomic, copy) void (^BlockOnDeviceChange)(HESimpleCamera *camera, AVCaptureDevice *device);
+
+/*!
  *   @brief 出现错误回调
  */
 @property (nonatomic, copy) void (^BlockOnError)(HESimpleCamera *camera, NSError *error);
@@ -149,6 +154,33 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
  *   @brief 添加聚焦框和动画，如果不使用，则使用默认聚焦框
  */
 - (void)addFocusBox:(CALayer *)layer animation:(CAAnimation *)animation;
+
+#pragma mark - Helpers
+
+/*!
+ *   @brief 是否支持闪光灯
+ */
+- (BOOL)isFlashAvailable;
+
+/*!
+ *   @brief 是否支持手电筒
+ */
+- (BOOL)isTorchAvailable;
+
+/*!
+ *   @brief 设置闪光灯的模式，分为三种{HECameraFlashOff， HECameraFlashOn, HECameraFlashAuto}
+ */
+- (BOOL)setFlashMode:(HECameraFlash)cameraFlash;
+
+/*!
+ *   @brief 设置白平衡
+ */
+- (void)setWhiteBalanceMode:(AVCaptureWhiteBalanceMode)whiteBalanceMode;
+
+/*!
+ *   @brief 切换前后摄像头位置，并返回当前使用的哪个摄像头
+ */
+- (HECameraPosition)togglePosition;
 
 @end
 

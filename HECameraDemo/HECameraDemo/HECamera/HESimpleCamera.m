@@ -412,35 +412,6 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     self.session = nil;
 }
 
-/*!
- *   @brief 根据选择的摄像头位置，选择出相应的device设备，如果找不到设备中没有摄像头，则返回nil
- */
-- (AVCaptureDevice *)cameraWithPosition:(AVCaptureDevicePosition)position {
-    NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
-    
-    for (AVCaptureDevice *device in devices) {
-        if (device.position == position) {
-            return device;
-        }
-    }
-    return nil;
-}
-
-/*!
- *   @brief 是否支持后置摄像头
- */
-- (BOOL)isRearCameraAvailable {
-    return [UIImagePickerController isCameraDeviceAvailable:UIImagePickerControllerCameraDeviceRear];
-}
-
-/*!
- *   @brief 是否支持前置摄像头
- */
-- (BOOL)isFrontCameraAvalilable {
-    return [UIImagePickerController isCameraDeviceAvailable:UIImagePickerControllerCameraDeviceFront];
-}
-
-
 #pragma mark - Focus
 
 /*!
@@ -513,6 +484,271 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 #pragma mark - Class Method
 
 #pragma mark - Helpers
+
+/*!
+ *   @brief 是否支持闪光灯
+ */
+- (BOOL)isFlashAvailable {
+    return self.videoCaptureDevice.hasFlash && self.videoCaptureDevice.isFlashAvailable;
+}
+
+/*!
+ *   @brief 是否支持手电筒
+ */
+- (BOOL)isTorchAvailable {
+    return self.videoCaptureDevice.hasTorch && self.videoCaptureDevice.isTorchAvailable;
+
+}
+
+/*!
+ *   @brief 设置闪光灯的模式，分为三种{HECameraFlashOff， HECameraFlashOn, HECameraFlashAuto}
+ */
+- (BOOL)setFlashMode:(HECameraFlash)cameraFlash {
+    if (!self.session) {
+        return NO;
+    }
+    
+    AVCaptureFlashMode flashMode;
+    switch (cameraFlash) {
+        case HECameraFlashOn:
+            flashMode = AVCaptureFlashModeOn;
+            break;
+        case HECameraFlashOff:
+            flashMode = AVCaptureFlashModeOff;
+            break;
+        case HECameraFlashAuto:
+            flashMode = AVCaptureFlashModeAuto;
+            break;
+            
+        default:
+            flashMode = AVCaptureFlashModeAuto;
+            break;
+    }
+    
+    if ([self.videoCaptureDevice isFlashModeSupported:flashMode]) {
+        NSError *error;
+        if ([self.videoCaptureDevice lockForConfiguration:&error]) {
+            self.videoCaptureDevice.flashMode = flashMode;
+            [self.videoCaptureDevice unlockForConfiguration];
+            _flash = cameraFlash;
+            return YES;
+        } else {
+            [self passError:error];
+            return NO;
+        }
+    }
+    return NO;
+}
+
+/*!
+ *   @brief 设置白平衡
+ */
+- (void)setWhiteBalanceMode:(AVCaptureWhiteBalanceMode)whiteBalanceMode {
+    if ([self.videoCaptureDevice isWhiteBalanceModeSupported:whiteBalanceMode]) {
+        NSError *error;
+        if ([self.videoCaptureDevice lockForConfiguration:&error]) {
+            [self.videoCaptureDevice setWhiteBalanceMode:whiteBalanceMode];
+            [self.videoCaptureDevice unlockForConfiguration];
+            
+            _whiteBalanceMode = whiteBalanceMode;
+        } else {
+            [self passError:error];
+        }
+    }
+}
+
+/*!
+ *   @brief 设置视频镜像
+ */
+- (void)setMirror:(HECameraMirror)mirror {
+    _mirror = mirror;
+    
+    if (!self.session) {
+        return;
+    }
+    
+    AVCaptureConnection *videoConnection = [self.movieFileOutput connectionWithMediaType:AVMediaTypeVideo];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_10_0
+    AVCaptureConnection *pictureConnection = [self.photoOutput connectionWithMediaType:AVMediaTypeVideo];
+#else
+    AVCaptureConnection *pictureConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
+#endif
+    switch (mirror) {
+        case HECameraMirrorOn: {
+            if ([videoConnection isVideoMirroringSupported]) {
+                [videoConnection setVideoMirrored:YES];
+            }
+            if ([pictureConnection isVideoMirroringSupported]) {
+                [pictureConnection setVideoMirrored:YES];
+            }
+            
+            break;
+        }
+        case HECameraMirrorOff: {
+            if ([videoConnection isVideoMirroringSupported]) {
+                [videoConnection setVideoMirrored:NO];
+            }
+            if ([pictureConnection isVideoMirroringSupported]) {
+                [pictureConnection setVideoMirrored:NO];
+            }
+
+            break;
+        }
+        case HECameraMirrorAuto: {
+            BOOL shouldMirror = (self.position == HECameraPositionFront);
+            if ([videoConnection isVideoMirroringSupported]) {
+                [videoConnection setVideoMirrored:shouldMirror];
+            }
+            if ([pictureConnection isVideoMirroringSupported]) {
+                [pictureConnection setVideoMirrored:shouldMirror];
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+/*!
+ *   @brief 切换前后摄像头位置，并返回当前使用的哪个摄像头
+ */
+- (HECameraPosition)togglePosition {
+    
+    if (!self.session) {
+        return self.position;
+    }
+    
+    if (self.position == HECameraPositionFront) {
+        [self setCameraPosition:HECameraPositionFront];
+    } else {
+        [self setCameraPosition:HECameraPositionRear];
+    }
+    return _position;
+}
+
+/*!
+ *   @brief 设置摄像头
+ */
+- (void)setCameraPosition:(HECameraPosition)cameraPosition {
+    if (self.position == cameraPosition || !self.session) {
+        return;
+    }
+    
+    if (cameraPosition == HECameraPositionRear && ![self isRearCameraAvailable]) {
+        return;
+    }
+    if (cameraPosition == HECameraPositionFront && ![self isFrontCameraAvalilable]) {
+        return;
+    }
+    
+    [self.session beginConfiguration];
+    
+    // 移除输入源
+    [self.session removeInput:self.videoDeviceInput];
+    
+    // 添加新的输入源
+    AVCaptureDevice *device = nil;
+    if (self.videoDeviceInput.device.position == AVCaptureDevicePositionBack) {
+        device = [self cameraWithPosition:AVCaptureDevicePositionFront];
+    } else {
+        device = [self cameraWithPosition:AVCaptureDevicePositionBack];
+    }
+    
+    if (!device) {
+        return;
+    }
+    
+    NSError *error = nil;
+    AVCaptureDeviceInput *videoInput = [[AVCaptureDeviceInput alloc] initWithDevice:device error:&error];
+    if (error) {
+        [self passError:error];
+        [self.session commitConfiguration];
+        return;
+    }
+    if ([self.session canAddInput:videoInput]) {
+        [self.session addInput:videoInput];
+        [self.session commitConfiguration];
+    }
+    
+    self.position = cameraPosition;
+    [self setMirror:self.mirror];
+}
+
+/*!
+ *   @brief 根据选择的摄像头位置，选择出相应的device设备，如果找不到设备中没有摄像头，则返回nil
+ */
+- (AVCaptureDevice *)cameraWithPosition:(AVCaptureDevicePosition)position {
+    NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
+    
+    for (AVCaptureDevice *device in devices) {
+        if (device.position == position) {
+            return device;
+        }
+    }
+    return nil;
+}
+
+/*!
+ *   @brief 返回静态图片的连接connect
+ */
+- (AVCaptureConnection *)captureConnection {
+    AVCaptureConnection *videoConnection = nil;
+#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_10_0
+    for (AVCaptureConnection *connection in self.photoOutput.connections) {
+#else
+    for (AVCaptureConnection *connection in self.stillImageOutput.connections) {
+#endif
+        for (AVCaptureInputPort *port in [connection inputPorts]) {
+            if ([[port mediaType] isEqualToString:AVMediaTypeVideo]) {
+                videoConnection = connection;
+                break;
+            }
+        }
+        if (videoConnection) {
+            break;
+        }
+    }
+    return videoConnection;
+}
+
+/*!
+ *   @brief 设置属性：videoCaptureDevice， 同时设置device的闪光灯效果
+ */
+- (void)setVideoCaptureDevice:(AVCaptureDevice *)videoCaptureDevice {
+    _videoCaptureDevice = videoCaptureDevice;
+    
+    if (videoCaptureDevice.flashMode == AVCaptureFlashModeOn) {
+        self.flash = HECameraFlashOn;
+    } else if (videoCaptureDevice.flashMode == AVCaptureFlashModeOff) {
+        self.flash = HECameraFlashOff;
+    } else if (videoCaptureDevice.flashMode == AVCaptureFlashModeAuto) {
+        self.flash = HECameraFlashAuto;
+    } else {
+        self.flash = HECameraFlashOff;
+    }
+    
+    self.effectiveScale = 1.0f;
+    
+    if (self.BlockOnDeviceChange) {
+        __weak typeof(self) weakSelf = self;
+        self.BlockOnDeviceChange(weakSelf, videoCaptureDevice);
+    }
+}
+
+/*!
+ *   @brief 是否支持后置摄像头
+ */
+- (BOOL)isRearCameraAvailable {
+    return [UIImagePickerController isCameraDeviceAvailable:UIImagePickerControllerCameraDeviceRear];
+}
+
+/*!
+ *   @brief 是否支持前置摄像头
+ */
+- (BOOL)isFrontCameraAvalilable {
+    return [UIImagePickerController isCameraDeviceAvailable:UIImagePickerControllerCameraDeviceFront];
+}
+
 
 /*!
  *   @brief 请求使用摄像头录像的权限
