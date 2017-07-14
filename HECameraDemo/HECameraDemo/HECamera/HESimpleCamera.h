@@ -97,7 +97,7 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
 @property (nonatomic, assign) CGFloat maxScale;
 
 /*!
- *   @brief 是否在抓取图片后固定屏幕的方向
+ *   @brief 是否在抓取图片后将旋转图片的方向（保证图片是正方向）
  */
 @property (nonatomic, assign) BOOL fixOrientationAfterCapture;
 
@@ -148,6 +148,32 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
  *   @brief 结束工作
  */
 - (void)stop;
+
+#pragma mark - Image Capture
+
+/*!
+ *   @brief 拍照功能, 可设置尺寸、动画
+ *   @param onCapture           拍完照片后的回调
+ *          exactedSize         是否为精确的尺寸
+ *          animationBlock      动画效果，可以对previewLayer添加自定义的动画
+ */
+- (void)captureImage:(void (^)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error))onCapture exactedSize:(BOOL)exactedSize animationBlock:(void (^)(AVCaptureVideoPreviewLayer *previewLayer))animationBlock;
+
+/*!
+ *   @brief 拍照功能，可设置尺寸
+ *   @param onCapture           拍完照片后的回调
+ *          exactedSize         是否为精确的尺寸
+ */
+- (void)captureImage:(void (^)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error))onCapture exactedSize:(BOOL)exactedSize;
+
+/*!
+ *   @brief 拍照功能
+ *   @param onCapture           拍完照片后的回调
+ */
+- (void)captureImage:(void (^)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error))onCapture;
+
+#pragma mark - Video Capture
+
 
 #pragma mark - Focus
 /*!

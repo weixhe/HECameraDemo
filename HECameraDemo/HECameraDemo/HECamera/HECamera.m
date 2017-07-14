@@ -13,17 +13,29 @@
 
 @interface HECamera ()
 
+@property (nonatomic, strong) HESimpleCamera *camera;
+
 @end
 
 @implementation HECamera
 
 #pragma mark - Initialize
 - (void)initialize {
-    HESimpleCamera *camera = [[HESimpleCamera alloc] initWithVideoEnabled:NO];
-    [camera attachToViewController:self withFrame:self.view.bounds];
-    [camera start];
+    self.camera = [[HESimpleCamera alloc] initWithVideoEnabled:NO];
+    [self.camera attachToViewController:self withFrame:self.view.bounds];
+    [self.camera start];
     
-    [camera setBlockOnError:^(HESimpleCamera *camera, NSError *error){
+    [self.camera setBlockOnDeviceChange:^(HESimpleCamera *camera, AVCaptureDevice *device) {
+        // 判断是否支持闪光灯，如果支持，则显示闪光灯按钮，如果不支持，则将闪光灯的按钮隐藏
+        if ([camera isFlashAvailable]) {    // 支持
+            
+        } else {    // 不支持
+            
+        }
+        
+    }];
+    
+    [self.camera setBlockOnError:^(HESimpleCamera *camera, NSError *error) {
         if ([error.domain isEqualToString:HESimpleCameraErrorDomain]) {
             
             switch (error.code) {
@@ -78,6 +90,11 @@
     
     bottomBar.BlockOnSnapImage = ^{
         
+        [weakSelf.camera captureImage:^(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error) {
+            NSLog(@"%@", image);
+            NSLog(@"%@", metaData);
+
+        }];
     };
     
     bottomBar.BlockOnCancel = ^{

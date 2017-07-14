@@ -18,6 +18,7 @@
 		4523E7D41F14C1E700A4D7BD /* HESimpleCamera.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7D31F14C1E700A4D7BD /* HESimpleCamera.m */; };
 		45AE8AE81F1890BD008091FE /* HECamera.m in Sources */ = {isa = PBXBuildFile; fileRef = 45AE8AE71F1890BD008091FE /* HECamera.m */; };
 		45AE8AEE1F18B10A008091FE /* HEBottomBar.m in Sources */ = {isa = PBXBuildFile; fileRef = 45AE8AED1F18B10A008091FE /* HEBottomBar.m */; };
+		45AE8AF11F18CD9D008091FE /* UIImage+FixOrientation.m in Sources */ = {isa = PBXBuildFile; fileRef = 45AE8AF01F18CD9D008091FE /* UIImage+FixOrientation.m */; };
 		45D983ED1F17607700C82C1D /* HESimpleCamera.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 45D983EC1F17607700C82C1D /* HESimpleCamera.bundle */; };
 		45D983F01F1778FB00C82C1D /* HESimpleCamera+Helper.m in Sources */ = {isa = PBXBuildFile; fileRef = 45D983EF1F1778FB00C82C1D /* HESimpleCamera+Helper.m */; };
 /* End PBXBuildFile section */
@@ -62,6 +63,8 @@
 		45AE8AE71F1890BD008091FE /* HECamera.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HECamera.m; sourceTree = "<group>"; };
 		45AE8AEC1F18B10A008091FE /* HEBottomBar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HEBottomBar.h; sourceTree = "<group>"; };
 		45AE8AED1F18B10A008091FE /* HEBottomBar.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HEBottomBar.m; sourceTree = "<group>"; };
+		45AE8AEF1F18CD9D008091FE /* UIImage+FixOrientation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+FixOrientation.h"; sourceTree = "<group>"; };
+		45AE8AF01F18CD9D008091FE /* UIImage+FixOrientation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIImage+FixOrientation.m"; sourceTree = "<group>"; };
 		45D983EC1F17607700C82C1D /* HESimpleCamera.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = HESimpleCamera.bundle; sourceTree = "<group>"; };
 		45D983EE1F1778FB00C82C1D /* HESimpleCamera+Helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "HESimpleCamera+Helper.h"; sourceTree = "<group>"; };
 		45D983EF1F1778FB00C82C1D /* HESimpleCamera+Helper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "HESimpleCamera+Helper.m"; sourceTree = "<group>"; };
@@ -165,6 +168,8 @@
 				4523E7D31F14C1E700A4D7BD /* HESimpleCamera.m */,
 				45D983EE1F1778FB00C82C1D /* HESimpleCamera+Helper.h */,
 				45D983EF1F1778FB00C82C1D /* HESimpleCamera+Helper.m */,
+				45AE8AEF1F18CD9D008091FE /* UIImage+FixOrientation.h */,
+				45AE8AF01F18CD9D008091FE /* UIImage+FixOrientation.m */,
 				45AE8AEC1F18B10A008091FE /* HEBottomBar.h */,
 				45AE8AED1F18B10A008091FE /* HEBottomBar.m */,
 			);
@@ -309,6 +314,7 @@
 			files = (
 				4523E7A61F14C0F600A4D7BD /* ViewController.m in Sources */,
 				4523E7A31F14C0F600A4D7BD /* AppDelegate.m in Sources */,
+				45AE8AF11F18CD9D008091FE /* UIImage+FixOrientation.m in Sources */,
 				45D983F01F1778FB00C82C1D /* HESimpleCamera+Helper.m in Sources */,
 				45AE8AEE1F18B10A008091FE /* HEBottomBar.m in Sources */,
 				4523E7A01F14C0F600A4D7BD /* main.m in Sources */,

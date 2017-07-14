@@ -8,6 +8,8 @@
 
 #import "HESimpleCamera.h"
 #import "HESimpleCamera+Helper.h"
+#import <ImageIO/CGImageProperties.h>
+#import "UIImage+FixOrientation.h"
 
 NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 
@@ -411,6 +413,92 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     [self.session stopRunning];
     self.session = nil;
 }
+
+#pragma mark - Image Capture
+/*!
+ *   @brief 拍照功能
+ *   @param onCapture           拍完照片后的回调
+ *          exactedSize         是否为精确的尺寸
+ *          animationBlock      动画效果，可以对previewLayer添加自定义的动画
+ */
+- (void)captureImage:(void (^)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error))onCapture exactedSize:(BOOL)exactedSize animationBlock:(void (^)(AVCaptureVideoPreviewLayer *previewLayer))animationBlock {
+    
+    if (!self.session) {
+        NSError *error = [NSError errorWithDomain:HESimpleCameraErrorDomain code:HECameraErrorCodeSession userInfo:nil];
+        [self passError:error];
+        onCapture(self, nil, nil, error);
+        return;
+    }
+    
+    AVCaptureConnection *videoConnecton = [self captureConnection];
+    videoConnecton.videoOrientation = [self orientationForConnection];
+    BOOL flashActive = self.videoCaptureDevice.flashActive;
+    if (!flashActive && animationBlock) {
+        animationBlock(self.captureVideoPreviewLayer);
+    }
+    
+    [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:videoConnecton completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError *error) {
+        
+        UIImage *image = nil;
+        NSDictionary *metaData = nil;
+        
+        if (imageDataSampleBuffer != NULL) {
+            CGPDFDictionaryRef exifAttachments = CMGetAttachment(imageDataSampleBuffer, kCGImagePropertyExifDictionary, NULL);
+            if (exifAttachments) {
+                metaData = (__bridge NSDictionary *)exifAttachments;
+            }
+            
+            NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
+            image = [UIImage imageWithData:imageData];
+            
+            if (exactedSize) {
+                image = [self cropImage:image usingPreviewLayer:self.captureVideoPreviewLayer];
+            }
+            
+            if (self.fixOrientationAfterCapture) {
+                image = [image fixOrientation];
+            }
+        }
+        
+        // 结果回调
+        if (onCapture) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                onCapture(self, image, metaData, nil);
+            });
+        }
+    }];
+}
+
+/*!
+ *   @brief 拍照功能
+ *   @param onCapture           拍完照片后的回调
+ *          exactedSize         是否为精确的尺寸
+ */
+- (void)captureImage:(void (^)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error))onCapture exactedSize:(BOOL)exactedSize {
+    [self captureImage:onCapture exactedSize:exactedSize animationBlock:^(AVCaptureVideoPreviewLayer *previewLayer) {
+        CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        animation.duration = 0.1;
+        animation.autoreverses = YES;
+        animation.repeatCount = 0.0;
+        animation.fromValue = [NSNumber numberWithFloat:1.0];
+        animation.toValue = [NSNumber numberWithFloat:0.1];
+        animation.fillMode = kCAFillModeForwards;
+        animation.removedOnCompletion = NO;
+        [previewLayer addAnimation:animation forKey:@"animateOpacity"];
+    }];
+}
+
+/*!
+ *   @brief 拍照功能
+ *   @param onCapture           拍完照片后的回调
+ */
+- (void)captureImage:(void (^)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error))onCapture {
+    [self captureImage:onCapture exactedSize:NO];
+
+}
+
+#pragma mark - Video Capture
+
 
 #pragma mark - Focus
 
