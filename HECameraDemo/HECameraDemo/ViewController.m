@@ -7,7 +7,7 @@
 //
 
 #import "ViewController.h"
-#import "HESimpleCamera.h"
+#import "HECamera.h"
 
 @interface ViewController ()
 
@@ -18,31 +18,13 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    HESimpleCamera *camera = [[HESimpleCamera alloc] initWithVideoEnabled:NO];
-    [camera attachToViewController:self withFrame:self.view.bounds];
-    [camera start];
-
-    [camera setBlockOnError:^(HESimpleCamera *camera, NSError *error){
-        if ([error.domain isEqualToString:HESimpleCameraErrorDomain]) {
-            
-            switch (error.code) {
-                case HECameraErrorCodeCameraPermission:
-                    NSLog(@"照相机授权失败");
-                    break;
-                case HECameraErrorCodeMicrophonePermission:
-                    NSLog(@"麦克风授权失败");
-                    break;
-                case HECameraErrorCodeSession:
-                    NSLog(@"创建会话失败");
-                case HECameraErrorCodeVideoNotEnabled:
-                    NSLog(@"不能录像");
-                    break;
-                    
-                default:
-                    break;
-            }
-        }
-    }];
+    UIButton *first = [UIButton buttonWithType:UIButtonTypeCustom];
+    first.frame = CGRectMake(0, 0, 80, 44);
+    first.center = CGPointMake(self.view.frame.size.width / 2, 100);
+    [first setTitle:@"照相机" forState:UIControlStateNormal];
+    first.backgroundColor = [UIColor colorWithRed:143/255.0 green:110/255.0 blue:246/255.0 alpha:1];
+    [first addTarget:self action:@selector(onFirstAction) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:first];
     
 }
 
@@ -50,6 +32,11 @@
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
     // Dispose of any resources that can be recreated.
+}
+
+- (void)onFirstAction {
+    HECamera *camera = [[HECamera alloc] init];
+    [self presentViewController:camera animated:YES completion:nil];
 }
 
 
