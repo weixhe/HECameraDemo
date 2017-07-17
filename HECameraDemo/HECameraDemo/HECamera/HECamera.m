@@ -23,6 +23,7 @@
 - (void)initialize {
     self.camera = [[HESimpleCamera alloc] initWithVideoEnabled:NO];
     [self.camera attachToViewController:self withFrame:self.view.bounds];
+    self.camera.fixOrientationAfterCapture = YES;
     [self.camera start];
     
     [self.camera setBlockOnDeviceChange:^(HESimpleCamera *camera, AVCaptureDevice *device) {

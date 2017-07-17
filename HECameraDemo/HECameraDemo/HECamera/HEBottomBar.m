@@ -49,7 +49,7 @@
     self.snapButton.center = CGPointMake(CGRectGetWidth(self.frame) / 2, CGRectGetHeight(self.frame) / 2);
     
     self.cancelButton.frame = CGRectMake(0, 0, 45, 45);
-    self.cancelButton.center = CGPointMake(50, CGRectGetHeight(self.frame) / 2);
+    self.cancelButton.center = CGPointMake(30, CGRectGetHeight(self.frame) / 2);
 }
 
 #pragma mark - UIButton Action
