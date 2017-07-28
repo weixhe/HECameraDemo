@@ -67,9 +67,9 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
 /*!
  *   @brief 闪光灯的状态：开、关、自动
  */
-@property (nonatomic, assign) HECameraFlash flash;
+@property (nonatomic, assign, readonly) HECameraFlash flash;
 
-@property (nonatomic, assign) HECameraMirror mirror;
+@property (nonatomic, assign, readonly) HECameraMirror mirror;
 
 /**
  *  @brief 默认：AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance

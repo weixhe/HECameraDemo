@@ -9,7 +9,8 @@
 #import "HECamera.h"
 #import "HESimpleCamera.h"
 #import "HEBottomBar.h"
-
+#import "HETopBar.h"
+#import "HECameraConstant.h"
 
 @interface HECamera ()
 
@@ -70,9 +71,29 @@
     // 添加底部工具栏
     [self setupBottomBar];
     
-    
+    // 添加顶部工具栏
+    [self setupTopBar];
 }
 
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_9_0
+    [[UIApplication sharedApplication] setStatusBarHidden:YES];
+#endif
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_9_0
+    [[UIApplication sharedApplication] setStatusBarHidden:NO];
+#endif
+}
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_9_0
+- (BOOL)prefersStatusBarHidden {
+    return YES;
+}
+#endif
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
     // Dispose of any resources that can be recreated.
@@ -84,13 +105,12 @@
  */
 - (void)setupBottomBar {
     
-    HEBottomBar *bottomBar = [[HEBottomBar alloc] initWithFrame:CGRectMake(0, CGRectGetHeight(self.view.frame) - 80, CGRectGetWidth(self.view.frame), 80)];
+    HEBottomBar *bottomBar = [[HEBottomBar alloc] initWithFrame:CGRectMake(0, SCREEN_HEIGHT - kDeviceScaleFactor(80), SCREEN_WIDTH, kDeviceScaleFactor(80))];
     [self.view addSubview:bottomBar];
     
     __weak typeof(self) weakSelf = self;
-    
+    // 点击快门，开始拍照
     bottomBar.BlockOnSnapImage = ^{
-        
         [weakSelf.camera captureImage:^(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error) {
             NSLog(@"%@", image);
             NSLog(@"%@", metaData);
@@ -98,8 +118,24 @@
         }];
     };
     
+    // 点击取消，返回上一页
     bottomBar.BlockOnCancel = ^{
         [weakSelf dismissViewControllerAnimated:YES completion:nil];
+    };
+}
+
+/*!
+ *   @brief 创建顶部bar，包含了开启闪光灯，交换前后摄像头等功能
+ */
+- (void)setupTopBar {
+    
+    HETopBar *topBar = [[HETopBar alloc] initWithFrame:CGRectMake(0, 0, SCREEN_WIDTH, kDeviceScaleFactor(40))];
+    [self.view addSubview:topBar];
+    
+    // 设置闪光灯的开关
+    __weak typeof(self) weakSelf = self;
+    topBar.BlockOnChangeFlashState = ^(HECameraFlash state) {
+        [weakSelf.camera setFlashMode:state];
     };
 }
 

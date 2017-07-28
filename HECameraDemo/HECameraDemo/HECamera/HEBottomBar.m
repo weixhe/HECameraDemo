@@ -7,6 +7,7 @@
 //
 
 #import "HEBottomBar.h"
+#import "HECameraConstant.h"
 
 @interface HEBottomBar ()
 
@@ -31,13 +32,14 @@
 - (void)setup {
     
     self.snapButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.snapButton.imageEdgeInsets = UIEdgeInsetsMake(10, 10, 10, 10);
-    [self.snapButton setImage:[UIImage imageNamed:@"HESimpleCamera.bundle/cameraButton"] forState:UIControlStateNormal];
+    CGFloat padding = kDeviceScaleFactor(10);
+    self.snapButton.imageEdgeInsets = UIEdgeInsetsMake(padding, padding, padding, padding);
+    [self.snapButton setImage:UIImageFromCameraBundle(@"cameraButton") forState:UIControlStateNormal];
     [self.snapButton addTarget:self action:@selector(onSnapImageAction:) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.snapButton];
     
     self.cancelButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.cancelButton setImage:[UIImage imageNamed:@"HESimpleCamera.bundle/closeButton"] forState:UIControlStateNormal];
+    [self.cancelButton setImage:UIImageFromCameraBundle(@"closeButton") forState:UIControlStateNormal];
     [self.cancelButton addTarget:self action:@selector(onCancelAction:) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.cancelButton];
     
@@ -48,8 +50,8 @@
     self.snapButton.frame = CGRectMake(0, 0, CGRectGetHeight(self.frame), CGRectGetHeight(self.frame));
     self.snapButton.center = CGPointMake(CGRectGetWidth(self.frame) / 2, CGRectGetHeight(self.frame) / 2);
     
-    self.cancelButton.frame = CGRectMake(0, 0, 45, 45);
-    self.cancelButton.center = CGPointMake(30, CGRectGetHeight(self.frame) / 2);
+    self.cancelButton.frame = CGRectMake(0, 0, kDeviceScaleFactor(45), kDeviceScaleFactor(45));
+    self.cancelButton.center = CGPointMake(kDeviceScaleFactor(30), CGRectGetHeight(self.frame) / 2);
 }
 
 #pragma mark - UIButton Action

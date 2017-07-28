@@ -806,13 +806,13 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     _videoCaptureDevice = videoCaptureDevice;
     
     if (videoCaptureDevice.flashMode == AVCaptureFlashModeOn) {
-        self.flash = HECameraFlashOn;
+        _flash = HECameraFlashOn;
     } else if (videoCaptureDevice.flashMode == AVCaptureFlashModeOff) {
-        self.flash = HECameraFlashOff;
+        _flash = HECameraFlashOff;
     } else if (videoCaptureDevice.flashMode == AVCaptureFlashModeAuto) {
-        self.flash = HECameraFlashAuto;
+        _flash = HECameraFlashAuto;
     } else {
-        self.flash = HECameraFlashOff;
+        _flash = HECameraFlashOff;
     }
     
     self.effectiveScale = 1.0f;
