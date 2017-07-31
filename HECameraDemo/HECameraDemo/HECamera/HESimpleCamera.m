@@ -7,6 +7,7 @@
 //
 
 #import "HESimpleCamera.h"
+#import "HECameraConstant.h"
 #import "HESimpleCamera+Helper.h"
 #import <ImageIO/CGImageProperties.h>
 #import "UIImage+FixOrientation.h"
@@ -15,12 +16,12 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 
 
 @interface HESimpleCamera () <UIGestureRecognizerDelegate
-#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_10_0
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
 , AVCapturePhotoCaptureDelegate
 #endif
 >
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_10_0  //  __IPHONE_10_0 == 100000
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0  //  __IPHONE_10_0 == 100000
 @property (nonatomic, strong) AVCapturePhotoOutput *photoOutput;
 #else
 @property (nonatomic, strong) AVCaptureStillImageOutput *stillImageOutput;
@@ -45,6 +46,8 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 @property (nonatomic, assign) CGFloat effectiveScale;
 
 @property (nonatomic, copy) void (^BlockOnDidComplete)(HESimpleCamera *camere, NSURL *outputFileUrl, NSError *error);
+@property (nonatomic, copy) void (^BlockOnDidCaptured)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error);
+@property (nonatomic, assign) BOOL exactedSize;
 
 @end
 
@@ -351,12 +354,10 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         
         // 设置自动，不停的调整白平衡
         self.whiteBalanceMode = AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_10_0
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
         
         // 图片的输出
         self.photoOutput = [[AVCapturePhotoOutput alloc] init];
-        AVCapturePhotoSettings *photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
-        [self.photoOutput capturePhotoWithSettings:photoSettings delegate:self];
         if ([self.session canAddOutput:self.photoOutput]) {
             [self.session addOutput:self.photoOutput];
         }
@@ -437,36 +438,25 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         animationBlock(self.captureVideoPreviewLayer);
     }
     
+    self.BlockOnDidCaptured = onCapture;
+    self.exactedSize = exactedSize;
+    
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+    AVCapturePhotoSettings *photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
+    [self.photoOutput capturePhotoWithSettings:photoSettings delegate:self];
+    
+#else
+    __weak typeof(self) weakSelf = self;
     [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:videoConnecton completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError *error) {
         
-        UIImage *image = nil;
-        NSDictionary *metaData = nil;
-        
-        if (imageDataSampleBuffer != NULL) {
-            CGPDFDictionaryRef exifAttachments = CMGetAttachment(imageDataSampleBuffer, kCGImagePropertyExifDictionary, NULL);
-            if (exifAttachments) {
-                metaData = (__bridge NSDictionary *)exifAttachments;
-            }
-            
-            NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
-            image = [UIImage imageWithData:imageData];
-            
-            if (exactedSize) {
-                image = [self cropImage:image usingPreviewLayer:self.captureVideoPreviewLayer];
-            }
-            
-            if (self.fixOrientationAfterCapture) {
-                image = [image fixOrientation];
-            }
+        if (error) {
+            [weakSelf passError:error];
+            self.BlockOnDidCaptured(weakSelf, nil, nil, error);
+            return;
         }
-        
-        // 结果回调
-        if (onCapture) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                onCapture(self, image, metaData, nil);
-            });
-        }
+        [weakSelf handleCaptureWithPhotoSampleBuffer:imageDataSampleBuffer];
     }];
+#endif
 }
 
 /*!
@@ -656,7 +646,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     }
     
     AVCaptureConnection *videoConnection = [self.movieFileOutput connectionWithMediaType:AVMediaTypeVideo];
-#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_10_0
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
     AVCaptureConnection *pictureConnection = [self.photoOutput connectionWithMediaType:AVMediaTypeVideo];
 #else
     AVCaptureConnection *pictureConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
@@ -782,7 +772,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  */
 - (AVCaptureConnection *)captureConnection {
     AVCaptureConnection *videoConnection = nil;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_10_0
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
     for (AVCaptureConnection *connection in self.photoOutput.connections) {
 #else
     for (AVCaptureConnection *connection in self.stillImageOutput.connections) {
@@ -884,46 +874,113 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         self.BlockOnError(weakSelf, error);
     }
 }
+ 
+/*!
+ *   @brief 处理拍照结果，将数据转换成UIImage对象，并调用block回调
+ */
+- (void)handleCaptureWithPhotoSampleBuffer:(nullable CMSampleBufferRef)photoSampleBuffer {
+    UIImage *image = nil;
+    NSDictionary *metaData = nil;
+    
+    if (photoSampleBuffer != NULL) {
+        CFTypeRef/*CGPDFDictionaryRef*/ exifAttachments = CMGetAttachment(photoSampleBuffer, kCGImagePropertyExifDictionary, NULL);
+        if (exifAttachments) {
+            metaData = (__bridge NSDictionary *)exifAttachments;
+        }
+        
+        NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:photoSampleBuffer];
+        image = [UIImage imageWithData:imageData];
+        
+        if (self.exactedSize) {
+            image = [self cropImage:image usingPreviewLayer:self.captureVideoPreviewLayer];
+        }
+        
+        if (self.fixOrientationAfterCapture) {
+            image = [image fixOrientation];
+        }
+    }
+    
+    // 结果回调
+    if (self.BlockOnDidCaptured) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.BlockOnDidCaptured(self, image, metaData, nil);
+        });
+    }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_10_0
+}
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
 
 #pragma mark -  AVCapturePhotoCaptureDelegate
 
+/*!
+ *   @brief 第一个运行的回调， 当设置  [self.photoOutput capturePhotoWithSettings:photoSettings delegate:self] 后回调，
+ */
 - (void)captureOutput:(AVCapturePhotoOutput *)captureOutput willBeginCaptureForResolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings {
-    
+    HELog(@"%s", __func__);
 }
 
-
+/*!
+ *   @brief 开始拍照
+ */
 - (void)captureOutput:(AVCapturePhotoOutput *)captureOutput willCapturePhotoForResolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings {
-    
+    HELog(@"%s", __func__);
 }
 
+/*!
+ *   @brief 拍照结束
+ */
 - (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didCapturePhotoForResolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings {
-    
+    HELog(@"%s", __func__);
 }
 
+/*!
+ *   @brief 取出拍照的照片（已被处理过的图片）
+ */
 - (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishProcessingPhotoSampleBuffer:(nullable CMSampleBufferRef)photoSampleBuffer previewPhotoSampleBuffer:(nullable CMSampleBufferRef)previewPhotoSampleBuffer resolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings bracketSettings:(nullable AVCaptureBracketedStillImageSettings *)bracketSettings error:(nullable NSError *)error {
     
+    if (error) {
+        [self passError:error];
+        self.BlockOnDidCaptured(self, nil, nil, error);
+        return;
+    }
+    
+    [self handleCaptureWithPhotoSampleBuffer:photoSampleBuffer];
 }
 
-
+/*!
+ *   @brief 取出拍照的照片（未经处理的图片），当setting中的'rawPhotoPixelFormatType'不为0时，此回调会将被使用, 但是 rawPhotoPixelFormatType 并不是所有的平台都支持, 而且，key-value也是固定值
+ *          还需要通过 AVCapturePhotoOutput.availableRawPhotoPixelFormatTypes 方法来查看
+ */
 - (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishProcessingRawPhotoSampleBuffer:(nullable CMSampleBufferRef)rawSampleBuffer previewPhotoSampleBuffer:(nullable CMSampleBufferRef)previewPhotoSampleBuffer resolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings bracketSettings:(nullable AVCaptureBracketedStillImageSettings *)bracketSettings error:(nullable NSError *)error {
+    if (error) {
+        [self passError:error];
+        self.BlockOnDidCaptured(self, nil, nil, error);
+        return;
+    }
     
+    [self handleCaptureWithPhotoSampleBuffer:rawSampleBuffer];
 }
 
-
+/*!
+ *   @brief 录制完视频，但还没有存到本地的磁盘
+ */
 - (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishRecordingLivePhotoMovieForEventualFileAtURL:(NSURL *)outputFileURL resolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings {
-    
+    HELog(@"%s", __func__);
 }
 
-
+/*!
+ *   @brief 录制完视频，并已经存到本地的磁盘
+ */
 - (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishProcessingLivePhotoToMovieFileAtURL:(NSURL *)outputFileURL duration:(CMTime)duration photoDisplayTime:(CMTime)photoDisplayTime resolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings error:(nullable NSError *)error {
-    
+    HELog(@"%s", __func__);
 }
 
-
+/*!
+ *   @brief 所有的回调都执行完后，在走此方法
+ */
 - (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishCaptureForResolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings error:(nullable NSError *)error {
-    
+    HELog(@"%s", __func__);
 }
 
 #endif
