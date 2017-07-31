@@ -707,9 +707,9 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     }
     
     if (self.position == HECameraPositionFront) {
-        [self setCameraPosition:HECameraPositionFront];
-    } else {
         [self setCameraPosition:HECameraPositionRear];
+    } else {
+        [self setCameraPosition:HECameraPositionFront];
     }
     return _position;
 }
@@ -754,11 +754,12 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         return;
     }
     if ([self.session canAddInput:videoInput]) {
+        self.videoDeviceInput = videoInput;
         [self.session addInput:videoInput];
         [self.session commitConfiguration];
     }
     
-    self.position = cameraPosition;
+    _position = cameraPosition;
     [self setMirror:self.mirror];
 }
 

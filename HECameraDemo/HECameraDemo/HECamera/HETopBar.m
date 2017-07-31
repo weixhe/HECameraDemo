@@ -23,6 +23,7 @@
 {
     self.flashContainerView = nil;
     self.BlockOnChangeFlashState = NULL;
+    self.BlockOnToggleCameraPosition = NULL;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -72,6 +73,15 @@
     autoFlashBtn.titleLabel.font = [UIFont systemFontOfSize:12];
     [autoFlashBtn addTarget:self action:@selector(onAutoFlashAction) forControlEvents:UIControlEventTouchUpInside];
     [self.flashContainerView addSubview:autoFlashBtn];
+    
+    
+    // 设置前后摄像头
+    UIButton *cameraBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    cameraBtn.frame = CGRectMake(SCREEN_WIDTH - CGRectGetHeight(self.frame), 0, CGRectGetHeight(self.frame), CGRectGetHeight(self.frame));
+    [cameraBtn setImage:UIImageFromCameraBundle(@"swapButton") forState:UIControlStateNormal];
+    [cameraBtn addTarget:self action:@selector(onToggleCameraAction:) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:cameraBtn];
+
 }
 
 #pragma mark - UIButton Action
@@ -114,6 +124,19 @@
         self.BlockOnChangeFlashState(HECameraFlashAuto);
     }
     [self onExpendFlashItems];
+}
+
+/*!
+ *   @brief 切换前后摄像头
+ */
+- (void)onToggleCameraAction:(UIButton *)button {
+    button.userInteractionEnabled = NO;
+    if (self.BlockOnToggleCameraPosition) {
+        self.BlockOnToggleCameraPosition();
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        button.userInteractionEnabled = YES;
+    });
 }
 
 @end

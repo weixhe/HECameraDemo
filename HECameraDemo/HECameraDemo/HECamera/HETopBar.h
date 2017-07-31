@@ -11,6 +11,8 @@
 
 @interface HETopBar : UIView
 
-@property (nonatomic, copy) void (^BlockOnChangeFlashState)(HECameraFlash state);
+@property (nonatomic, copy) void (^BlockOnChangeFlashState)(HECameraFlash state);       // 改变闪光灯的状态
+
+@property (nonatomic, copy) void (^BlockOnToggleCameraPosition)();      // 切换照相机的摄像头
 
 @end

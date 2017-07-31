@@ -62,7 +62,7 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
 /*!
  *   @brief 使用的摄像头:前置摄像头、后置摄像头
  */
-@property (nonatomic, assign) HECameraPosition position;
+@property (nonatomic, assign, readonly) HECameraPosition position;
 
 /*!
  *   @brief 闪光灯的状态：开、关、自动

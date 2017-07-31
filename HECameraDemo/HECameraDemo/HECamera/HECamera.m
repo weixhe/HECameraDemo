@@ -112,8 +112,8 @@
     // 点击快门，开始拍照
     bottomBar.BlockOnSnapImage = ^{
         [weakSelf.camera captureImage:^(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error) {
-            NSLog(@"%@", image);
-            NSLog(@"%@", metaData);
+            HELog(@"%@", image);
+            HELog(@"%@", metaData);
 
         }];
     };
@@ -136,6 +136,12 @@
     __weak typeof(self) weakSelf = self;
     topBar.BlockOnChangeFlashState = ^(HECameraFlash state) {
         [weakSelf.camera setFlashMode:state];
+    };
+    
+    // 切换摄像头
+    topBar.BlockOnToggleCameraPosition = ^{
+        [weakSelf.camera togglePosition];
+        HELog(@"togglePosition");
     };
 }
 

@@ -11,9 +11,9 @@
 
 /*========================================输出打印============================================*/
 #ifdef DEBUG
-#define CameraLog(xx, ...)  NSLog(@"%s(%d行):\t\t" xx, __PRETTY_FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define HELog(xx, ...)  NSLog(@"%s(%d行):\t\t" xx, __PRETTY_FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
-#define CameraLog(xx, ...)
+#define HELog(xx, ...)
 #endif
 
 #ifndef kDeviceScaleFactor
@@ -70,11 +70,11 @@ static inline UIImage * UIImageFromCameraBundle(NSString *imageName) {
             if (image) {
                 return image;
             } else {
-                CameraLog(@"特殊图片文件后缀，请添加处理方式");
+                HELog(@"特殊图片文件后缀，请添加处理方式");
             }
             
         } else {
-            CameraLog(@"特殊图片文件后缀，请添加处理方式");
+            HELog(@"特殊图片文件后缀，请添加处理方式");
         }
     }
     return [UIImage imageWithContentsOfFile:path];
