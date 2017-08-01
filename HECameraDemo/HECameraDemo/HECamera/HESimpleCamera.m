@@ -16,12 +16,12 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 
 
 @interface HESimpleCamera () <UIGestureRecognizerDelegate
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if SDK_Above_10_0
 , AVCapturePhotoCaptureDelegate
 #endif
 >
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0  //  __IPHONE_10_0 == 100000
+#if SDK_Above_10_0  //  __IPHONE_10_0 == 100000
 @property (nonatomic, strong) AVCapturePhotoOutput *photoOutput;
 @property (nonatomic, strong) AVCapturePhotoSettings *photoSettings;
 #else
@@ -355,23 +355,21 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         
         // 设置自动，不停的调整白平衡
         self.whiteBalanceMode = AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if SDK_Above_10_0
         
         // 图片的输出， 预先设置一些属性
         self.photoOutput = [[AVCapturePhotoOutput alloc] init];
-        HELog(@"%@", self.photoOutput.availableRawPhotoPixelFormatTypes);
         self.photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
-        
-//        [self.photoOutput setPhotoSettingsForSceneMonitoring:settings];
-//        NSArray *settings = @[];
 //        __weak typeof(self) weakSelf = self;
-//        [self.photoOutput setPreparedPhotoSettingsArray:@[settings] completionHandler:^(BOOL prepared, NSError * _Nullable error) {
+//        [self.photoOutput setPreparedPhotoSettingsArray:@[[AVCapturePhotoSettings photoSettingsWithRawPixelFormatType:1]] completionHandler:^(BOOL prepared, NSError * _Nullable error) {
 //            if (error) {
 //                [weakSelf passError:error];
 //            }
 //        }];
         if ([self.session canAddOutput:self.photoOutput]) {
             [self.session addOutput:self.photoOutput];
+            HELog(@"%@", self.photoOutput.availableRawPhotoPixelFormatTypes);
+
         }
 #else
         // 图片的输出
@@ -392,6 +390,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     
     // 开始工作
     [self.session startRunning];
+
 }
 
 /*!
@@ -453,8 +452,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     self.BlockOnDidCaptured = onCapture;
     self.exactedSize = exactedSize;
     
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
-    
+#if SDK_Above_10_0
     [self.photoOutput capturePhotoWithSettings:[AVCapturePhotoSettings photoSettingsFromPhotoSettings:self.photoSettings] delegate:self];
 #else
     __weak typeof(self) weakSelf = self;
@@ -613,7 +611,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
             flashMode = AVCaptureFlashModeAuto;
             break;
     }
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if SDK_Above_10_0
     
     if ([[self.photoOutput supportedFlashModes] containsObject:@(flashMode)]) {
         NSError *error;
@@ -675,7 +673,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     }
     
     AVCaptureConnection *videoConnection = [self.movieFileOutput connectionWithMediaType:AVMediaTypeVideo];
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if SDK_Above_10_0
     AVCaptureConnection *pictureConnection = [self.photoOutput connectionWithMediaType:AVMediaTypeVideo];
 #else
     AVCaptureConnection *pictureConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
@@ -786,8 +784,12 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  *   @brief 根据选择的摄像头位置，选择出相应的device设备，如果找不到设备中没有摄像头，则返回nil
  */
 - (AVCaptureDevice *)cameraWithPosition:(AVCaptureDevicePosition)position {
+#if SDK_Above_10_0
+    AVCaptureDeviceDiscoverySession *discoverSession = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeBuiltInTelephotoCamera] mediaType:AVMediaTypeVideo position:position];
+    NSArray *devices = discoverSession.devices;
+#else
     NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
-    
+#endif
     for (AVCaptureDevice *device in devices) {
         if (device.position == position) {
             return device;
@@ -801,7 +803,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  */
 - (AVCaptureConnection *)captureConnection {
     AVCaptureConnection *videoConnection = nil;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if SDK_Above_10_0
     for (AVCaptureConnection *connection in self.photoOutput.connections) {
 #else
     for (AVCaptureConnection *connection in self.stillImageOutput.connections) {
@@ -830,7 +832,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 - (void)setVideoCaptureDevice:(AVCaptureDevice *)videoCaptureDevice {
     _videoCaptureDevice = videoCaptureDevice;
     
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if SDK_Above_10_0
 
     if (self.photoSettings.flashMode == AVCaptureFlashModeOn) {
         _flash = HECameraFlashOn;
@@ -934,7 +936,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         if (exifAttachments) {
             metaData = (__bridge NSDictionary *)exifAttachments;
         }
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if SDK_Above_10_0
         NSData *data = [AVCapturePhotoOutput JPEGPhotoDataRepresentationForJPEGSampleBuffer:photoSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
         UIImage *image = [UIImage imageWithData:data];
 #else
@@ -959,7 +961,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if SDK_Above_10_0
 
 #pragma mark -  AVCapturePhotoCaptureDelegate
 
@@ -1009,10 +1011,10 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         return;
     }
     
-    /*  系统 IOS10 以后可直接取图片
-     NSData *data = [AVCapturePhotoOutput DNGPhotoDataRepresentationForRawSampleBuffer:photoSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
-     UIImage *image = [UIImage imageWithData:data];
-     */
+    
+//     NSData *data = [AVCapturePhotoOutput DNGPhotoDataRepresentationForRawSampleBuffer:rawSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
+//     UIImage *image = [UIImage imageWithData:data];
+    
     
     [self handleCaptureWithPhotoSampleBuffer:rawSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
 }

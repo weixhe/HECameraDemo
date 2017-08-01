@@ -76,6 +76,8 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
  */
 @property (nonatomic) AVCaptureWhiteBalanceMode whiteBalanceMode;
 
+@property (nonatomic, assign) BOOL has;
+
 /*!
  *   @brief 是否能录像
  */

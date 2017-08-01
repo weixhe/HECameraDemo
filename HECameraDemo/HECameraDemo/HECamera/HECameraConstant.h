@@ -30,6 +30,10 @@
 #define SCREEN_HEIGHT   ([[UIScreen mainScreen]bounds].size.height)     //屏幕高度
 #endif
 
+#ifndef SDK_Above_10_0
+#define SDK_Above_10_0 (__IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0)
+#endif
+
 
 // 声明
 static inline NSBundle * CameraBundle();
