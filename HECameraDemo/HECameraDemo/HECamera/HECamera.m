@@ -129,7 +129,7 @@
  */
 - (void)setupTopBar {
     
-    HETopBar *topBar = [[HETopBar alloc] initWithFrame:CGRectMake(0, 0, SCREEN_WIDTH, kDeviceScaleFactor(40))];
+    HETopBar *topBar = [[HETopBar alloc] initWithFrame:CGRectMake(0, 0, SCREEN_WIDTH, kDeviceScaleFactor(50))];
     [self.view addSubview:topBar];
     
     // 设置闪光灯的开关
@@ -143,6 +143,10 @@
         [weakSelf.camera togglePosition];
         HELog(@"togglePosition");
     };
+    
+    /*
+        TODO: 此处需要添加一些动画效果，后期再补充
+     */
 }
 
 @end

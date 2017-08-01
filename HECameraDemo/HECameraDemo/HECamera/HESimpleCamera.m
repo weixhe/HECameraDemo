@@ -23,6 +23,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0  //  __IPHONE_10_0 == 100000
 @property (nonatomic, strong) AVCapturePhotoOutput *photoOutput;
+@property (nonatomic, strong) AVCapturePhotoSettings *photoSettings;
 #else
 @property (nonatomic, strong) AVCaptureStillImageOutput *stillImageOutput;
 
@@ -356,8 +357,19 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         self.whiteBalanceMode = AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
         
-        // 图片的输出
+        // 图片的输出， 预先设置一些属性
         self.photoOutput = [[AVCapturePhotoOutput alloc] init];
+        HELog(@"%@", self.photoOutput.availableRawPhotoPixelFormatTypes);
+        self.photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
+        
+//        [self.photoOutput setPhotoSettingsForSceneMonitoring:settings];
+//        NSArray *settings = @[];
+//        __weak typeof(self) weakSelf = self;
+//        [self.photoOutput setPreparedPhotoSettingsArray:@[settings] completionHandler:^(BOOL prepared, NSError * _Nullable error) {
+//            if (error) {
+//                [weakSelf passError:error];
+//            }
+//        }];
         if ([self.session canAddOutput:self.photoOutput]) {
             [self.session addOutput:self.photoOutput];
         }
@@ -442,9 +454,8 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     self.exactedSize = exactedSize;
     
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
-    AVCapturePhotoSettings *photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
-    [self.photoOutput capturePhotoWithSettings:photoSettings delegate:self];
     
+    [self.photoOutput capturePhotoWithSettings:[AVCapturePhotoSettings photoSettingsFromPhotoSettings:self.photoSettings] delegate:self];
 #else
     __weak typeof(self) weakSelf = self;
     [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:videoConnecton completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError *error) {
@@ -454,7 +465,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
             self.BlockOnDidCaptured(weakSelf, nil, nil, error);
             return;
         }
-        [weakSelf handleCaptureWithPhotoSampleBuffer:imageDataSampleBuffer];
+        [weakSelf handleCaptureWithPhotoSampleBuffer:imageDataSampleBuffer previewPhotoSampleBuffer:imageDataSampleBuffer];
     }];
 #endif
 }
@@ -602,6 +613,23 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
             flashMode = AVCaptureFlashModeAuto;
             break;
     }
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+    
+    if ([[self.photoOutput supportedFlashModes] containsObject:@(flashMode)]) {
+        NSError *error;
+        if ([self.videoCaptureDevice lockForConfiguration:&error]) {
+            self.photoSettings.flashMode = flashMode;
+            self.photoOutput.photoSettingsForSceneMonitoring = self.photoSettings;
+            [self.videoCaptureDevice unlockForConfiguration];
+            _flash = cameraFlash;
+            return YES;
+        } else {
+            [self passError:error];
+            return NO;
+        }
+    }
+    
+#else
     
     if ([self.videoCaptureDevice isFlashModeSupported:flashMode]) {
         NSError *error;
@@ -615,6 +643,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
             return NO;
         }
     }
+#endif
     return NO;
 }
 
@@ -780,6 +809,11 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         for (AVCaptureInputPort *port in [connection inputPorts]) {
             if ([[port mediaType] isEqualToString:AVMediaTypeVideo]) {
                 videoConnection = connection;
+                
+                // 防抖模式
+                if ([videoConnection isVideoStabilizationSupported] && videoConnection .preferredVideoStabilizationMode != AVCaptureVideoStabilizationModeAuto) {
+                    videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeAuto;
+                }
                 break;
             }
         }
@@ -796,6 +830,18 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 - (void)setVideoCaptureDevice:(AVCaptureDevice *)videoCaptureDevice {
     _videoCaptureDevice = videoCaptureDevice;
     
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+
+    if (self.photoSettings.flashMode == AVCaptureFlashModeOn) {
+        _flash = HECameraFlashOn;
+    } else if (self.photoSettings.flashMode == AVCaptureFlashModeOff) {
+        _flash = HECameraFlashOff;
+    } else if (self.photoSettings.flashMode == AVCaptureFlashModeAuto) {
+        _flash = HECameraFlashOff;
+    } else {
+        _flash = HECameraFlashOff;
+    }
+#else
     if (videoCaptureDevice.flashMode == AVCaptureFlashModeOn) {
         _flash = HECameraFlashOn;
     } else if (videoCaptureDevice.flashMode == AVCaptureFlashModeOff) {
@@ -805,7 +851,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     } else {
         _flash = HECameraFlashOff;
     }
-    
+#endif
     self.effectiveScale = 1.0f;
     
     if (self.BlockOnDeviceChange) {
@@ -813,6 +859,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         self.BlockOnDeviceChange(weakSelf, videoCaptureDevice);
     }
 }
+     
 
 /*!
  *   @brief 是否支持后置摄像头
@@ -878,7 +925,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 /*!
  *   @brief 处理拍照结果，将数据转换成UIImage对象，并调用block回调
  */
-- (void)handleCaptureWithPhotoSampleBuffer:(nullable CMSampleBufferRef)photoSampleBuffer {
+- (void)handleCaptureWithPhotoSampleBuffer:(nullable CMSampleBufferRef)photoSampleBuffer previewPhotoSampleBuffer:(nullable CMSampleBufferRef)previewPhotoSampleBuffer {
     UIImage *image = nil;
     NSDictionary *metaData = nil;
     
@@ -887,10 +934,13 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         if (exifAttachments) {
             metaData = (__bridge NSDictionary *)exifAttachments;
         }
-        
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+        NSData *data = [AVCapturePhotoOutput JPEGPhotoDataRepresentationForJPEGSampleBuffer:photoSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
+        UIImage *image = [UIImage imageWithData:data];
+#else
         NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:photoSampleBuffer];
         image = [UIImage imageWithData:imageData];
-        
+#endif
         if (self.exactedSize) {
             image = [self cropImage:image usingPreviewLayer:self.captureVideoPreviewLayer];
         }
@@ -944,8 +994,8 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         self.BlockOnDidCaptured(self, nil, nil, error);
         return;
     }
-    
-    [self handleCaptureWithPhotoSampleBuffer:photoSampleBuffer];
+
+    [self handleCaptureWithPhotoSampleBuffer:photoSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
 }
 
 /*!
@@ -959,7 +1009,12 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         return;
     }
     
-    [self handleCaptureWithPhotoSampleBuffer:rawSampleBuffer];
+    /*  系统 IOS10 以后可直接取图片
+     NSData *data = [AVCapturePhotoOutput DNGPhotoDataRepresentationForRawSampleBuffer:photoSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
+     UIImage *image = [UIImage imageWithData:data];
+     */
+    
+    [self handleCaptureWithPhotoSampleBuffer:rawSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
 }
 
 /*!

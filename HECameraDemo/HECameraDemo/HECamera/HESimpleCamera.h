@@ -21,9 +21,9 @@ typedef NS_ENUM(NSUInteger, HECameraPosition) {
  *   @brief 闪光灯的状态
  */
 typedef NS_ENUM(NSUInteger, HECameraFlash) {
-    HECameraFlashOff,
-    HECameraFlashOn,
-    HECameraFlashAuto
+    HECameraFlashOff = 0,
+    HECameraFlashOn = 1,
+    HECameraFlashAuto = 2
 };
 
 typedef NS_ENUM(NSUInteger, HECameraMirror) {
