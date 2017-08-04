@@ -9,7 +9,7 @@
 #import <UIKit/UIKit.h>
 #import "HESimpleCamera.h"
 
-@interface HETopBar : UIView
+@interface HECameraTopBar : UIView
 
 @property (nonatomic, copy) void (^BlockOnChangeFlashState)(HECameraFlash state);       // 改变闪光灯的状态
 

@@ -6,10 +6,10 @@
 //  Copyright © 2017年 com.weixhe. All rights reserved.
 //
 
-#import "HETopBar.h"
+#import "HECameraTopBar.h"
 #import "HECameraConstant.h"
 
-@interface HETopBar () {
+@interface HECameraTopBar () {
     BOOL expendFlash;
 }
 
@@ -19,7 +19,7 @@
 
 @end
 
-@implementation HETopBar
+@implementation HECameraTopBar
 
 - (void)dealloc
 {

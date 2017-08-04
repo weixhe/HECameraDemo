@@ -6,10 +6,10 @@
 //  Copyright © 2017年 com.weixhe. All rights reserved.
 //
 
-#import "HEBottomBar.h"
+#import "HECameraBottomBar.h"
 #import "HECameraConstant.h"
 
-@interface HEBottomBar ()
+@interface HECameraBottomBar ()
 
 @property (nonatomic, strong) UIButton *snapButton;
 
@@ -17,7 +17,7 @@
 
 @end
 
-@implementation HEBottomBar
+@implementation HECameraBottomBar
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
@@ -39,7 +39,8 @@
     [self addSubview:self.snapButton];
     
     self.cancelButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.cancelButton setImage:UIImageFromCameraBundle(@"closeButton") forState:UIControlStateNormal];
+    [self.cancelButton setTitle:@"取消" forState:UIControlStateNormal];
+    self.cancelButton.titleLabel.font = [UIFont systemFontOfSize:kDeviceScaleFactor(20)];
     [self.cancelButton addTarget:self action:@selector(onCancelAction:) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.cancelButton];
     
@@ -50,7 +51,7 @@
     self.snapButton.frame = CGRectMake(0, 0, CGRectGetHeight(self.frame), CGRectGetHeight(self.frame));
     self.snapButton.center = CGPointMake(CGRectGetWidth(self.frame) / 2, CGRectGetHeight(self.frame) / 2);
     
-    self.cancelButton.frame = CGRectMake(0, 0, kDeviceScaleFactor(45), kDeviceScaleFactor(45));
+    self.cancelButton.frame = CGRectMake(0, 0, CGRectGetHeight(self.frame), CGRectGetHeight(self.frame));
     self.cancelButton.center = CGPointMake(kDeviceScaleFactor(30), CGRectGetHeight(self.frame) / 2);
 }
 

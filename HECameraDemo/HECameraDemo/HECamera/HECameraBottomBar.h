@@ -8,7 +8,7 @@
 
 #import <UIKit/UIKit.h>
 
-@interface HEBottomBar : UIView
+@interface HECameraBottomBar : UIView
 
 /*!
  *   @brief 拍照按钮事件回调

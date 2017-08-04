@@ -43,7 +43,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 @property (nonatomic, strong) CALayer *focusBoxLayer;
 @property (nonatomic, strong) CAAnimation *focusBoxAnimation;
 @property (nonatomic, strong) UIPinchGestureRecognizer *pinchGesture;
-@property (nonatomic, assign) CGFloat begingGestureScale;
+@property (nonatomic, assign) CGFloat beginGestureScale;
 @property (nonatomic, assign) CGFloat effectiveScale;
 
 @property (nonatomic, copy) void (^BlockOnDidComplete)(HESimpleCamera *camere, NSURL *outputFileUrl, NSError *error);
@@ -111,6 +111,9 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     _zoomingEnabled = YES;
 //    _maxScale =
     _effectiveScale = 1.0f;
+#if SDK_Above_10_0
+    self.photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
+#endif
 
 }
 
@@ -267,12 +270,57 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  */
 - (void)onPinchGesture:(UIPinchGestureRecognizer *)gesture {
     
+    BOOL allTouchesAreOnThePreviewLayer = YES;
+    NSUInteger numTouches = [gesture numberOfTouches], i = 0;
+    
+    for (i = 0; i < numTouches; ++i ) {
+        CGPoint location = [gesture locationOfTouch:i inView:self.preView];
+        CGPoint convertedLocation = [self.preView.layer convertPoint:location fromLayer:self.view.layer];
+        if (![self.preView.layer containsPoint:convertedLocation]) {
+            allTouchesAreOnThePreviewLayer = NO;
+            break;
+        }
+    }
+    
+    if (allTouchesAreOnThePreviewLayer) {
+        
+        _effectiveScale = _beginGestureScale * gesture.scale;
+        if (_effectiveScale < 1.0f) {
+            _effectiveScale = 1.0f;
+        }
+        
+        if (_effectiveScale > self.videoCaptureDevice.activeFormat.videoMaxZoomFactor) {
+            _effectiveScale = self.videoCaptureDevice.activeFormat.videoMaxZoomFactor;
+        }
+        
+        NSError *error = nil;
+        if ([self.videoCaptureDevice lockForConfiguration:&error]) {
+            [self.videoCaptureDevice rampToVideoZoomFactor:_effectiveScale withRate:50];
+            [self.videoCaptureDevice unlockForConfiguration];
+        } else {
+            [self passError:error];
+        }
+    }
 }
+
+//// 焦距范围0.0-1.0
+//- (void)cameraBackgroundDidChangeFocus:(CGFloat)focus {
+//    AVCaptureDevice *captureDevice = self.audioCaptureDevice;
+//    NSError *error;
+//    if ([captureDevice lockForConfiguration:&error]) {
+//        if ([captureDevice isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus]) {
+//            [captureDevice setFocusModeLockedWithLensPosition:focus completionHandler:nil];
+//        }
+//    } else {
+//        // Handle the error appropriately.
+//    }
+//}
+
 
 #pragma mark - UIGestureDelegate
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
     if ([gestureRecognizer isKindOfClass:[UIPinchGestureRecognizer class]]) {
-        self.begingGestureScale = self.effectiveScale;
+        self.beginGestureScale = self.effectiveScale;
     }
     return YES;
 }
@@ -316,7 +364,8 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         }
         
         if (devicePosition == AVCaptureDevicePositionUnspecified) {
-            self.videoCaptureDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+            _position = HECameraPositionRear;   // 因为有初始化值，所以这里的几乎不会走
+            self.videoCaptureDevice = [self cameraWithPosition:AVCaptureDevicePositionBack];
         } else {
             self.videoCaptureDevice = [self cameraWithPosition:devicePosition];
         }
@@ -359,7 +408,6 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         
         // 图片的输出， 预先设置一些属性
         self.photoOutput = [[AVCapturePhotoOutput alloc] init];
-        self.photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
 //        __weak typeof(self) weakSelf = self;
 //        [self.photoOutput setPreparedPhotoSettingsArray:@[[AVCapturePhotoSettings photoSettingsWithRawPixelFormatType:1]] completionHandler:^(BOOL prepared, NSError * _Nullable error) {
 //            if (error) {
@@ -510,7 +558,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     focusLayer.bounds = CGRectMake(0, 0, 70, 60);
     focusLayer.borderColor = [UIColor yellowColor].CGColor;
     focusLayer.borderWidth = 1.0f;
-    focusLayer.opaque = 0.0f;
+    focusLayer.opacity = 0.0f;
     [self.view.layer addSublayer:focusLayer];
     
     CABasicAnimation *focusBoxAnimation = [CABasicAnimation animationWithKeyPath:@"opacity"];
@@ -591,7 +639,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  *   @brief 设置闪光灯的模式，分为三种{HECameraFlashOff， HECameraFlashOn, HECameraFlashAuto}
  */
 - (BOOL)setFlashMode:(HECameraFlash)cameraFlash {
-    if (!self.session) {
+    if (!self.session || cameraFlash == _flash) {
         return NO;
     }
     
@@ -614,17 +662,10 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 #if SDK_Above_10_0
     
     if ([[self.photoOutput supportedFlashModes] containsObject:@(flashMode)]) {
-        NSError *error;
-        if ([self.videoCaptureDevice lockForConfiguration:&error]) {
-            self.photoSettings.flashMode = flashMode;
-            self.photoOutput.photoSettingsForSceneMonitoring = self.photoSettings;
-            [self.videoCaptureDevice unlockForConfiguration];
-            _flash = cameraFlash;
-            return YES;
-        } else {
-            [self passError:error];
-            return NO;
-        }
+        self.photoSettings.flashMode = flashMode;
+        self.photoOutput.photoSettingsForSceneMonitoring = self.photoSettings;
+        _flash = cameraFlash;
+        return YES;
     }
     
 #else
@@ -785,7 +826,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  */
 - (AVCaptureDevice *)cameraWithPosition:(AVCaptureDevicePosition)position {
 #if SDK_Above_10_0
-    AVCaptureDeviceDiscoverySession *discoverSession = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeBuiltInTelephotoCamera] mediaType:AVMediaTypeVideo position:position];
+    AVCaptureDeviceDiscoverySession *discoverSession = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeBuiltInWideAngleCamera] mediaType:AVMediaTypeVideo position:position];
     NSArray *devices = discoverSession.devices;
 #else
     NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
@@ -833,26 +874,9 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     _videoCaptureDevice = videoCaptureDevice;
     
 #if SDK_Above_10_0
-
-    if (self.photoSettings.flashMode == AVCaptureFlashModeOn) {
-        _flash = HECameraFlashOn;
-    } else if (self.photoSettings.flashMode == AVCaptureFlashModeOff) {
-        _flash = HECameraFlashOff;
-    } else if (self.photoSettings.flashMode == AVCaptureFlashModeAuto) {
-        _flash = HECameraFlashOff;
-    } else {
-        _flash = HECameraFlashOff;
-    }
+    self.photoSettings.flashMode = _flash == HECameraFlashOn ? AVCaptureFlashModeOn : (_flash == AVCaptureFlashModeAuto ? AVCaptureFlashModeAuto : AVCaptureFlashModeOff);
 #else
-    if (videoCaptureDevice.flashMode == AVCaptureFlashModeOn) {
-        _flash = HECameraFlashOn;
-    } else if (videoCaptureDevice.flashMode == AVCaptureFlashModeOff) {
-        _flash = HECameraFlashOff;
-    } else if (videoCaptureDevice.flashMode == AVCaptureFlashModeAuto) {
-        _flash = HECameraFlashAuto;
-    } else {
-        _flash = HECameraFlashOff;
-    }
+    videoCaptureDevice.flashMode = _flash == HECameraFlashOn ? AVCaptureFlashModeOn : _flash == AVCaptureFlashModeAuto ? AVCaptureFlashModeAuto : AVCaptureFlashModeOff;
 #endif
     self.effectiveScale = 1.0f;
     
@@ -861,7 +885,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         self.BlockOnDeviceChange(weakSelf, videoCaptureDevice);
     }
 }
-     
+
 
 /*!
  *   @brief 是否支持后置摄像头

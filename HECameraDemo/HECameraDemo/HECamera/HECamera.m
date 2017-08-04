@@ -8,8 +8,8 @@
 
 #import "HECamera.h"
 #import "HESimpleCamera.h"
-#import "HEBottomBar.h"
-#import "HETopBar.h"
+#import "HECameraBottomBar.h"
+#import "HECameraTopBar.h"
 #import "HECameraConstant.h"
 
 @interface HECamera ()
@@ -73,6 +73,9 @@
     
     // 添加顶部工具栏
     [self setupTopBar];
+    
+    // 添加设置菜单
+    [self setupSettings];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -105,7 +108,7 @@
  */
 - (void)setupBottomBar {
     
-    HEBottomBar *bottomBar = [[HEBottomBar alloc] initWithFrame:CGRectMake(0, SCREEN_HEIGHT - kDeviceScaleFactor(80), SCREEN_WIDTH, kDeviceScaleFactor(80))];
+    HECameraBottomBar *bottomBar = [[HECameraBottomBar alloc] initWithFrame:CGRectMake(0, SCREEN_HEIGHT - kDeviceScaleFactor(80), SCREEN_WIDTH, kDeviceScaleFactor(80))];
     [self.view addSubview:bottomBar];
     
     __weak typeof(self) weakSelf = self;
@@ -129,7 +132,7 @@
  */
 - (void)setupTopBar {
     
-    HETopBar *topBar = [[HETopBar alloc] initWithFrame:CGRectMake(0, 0, SCREEN_WIDTH, kDeviceScaleFactor(50))];
+    HECameraTopBar *topBar = [[HECameraTopBar alloc] initWithFrame:CGRectMake(0, 0, SCREEN_WIDTH, kDeviceScaleFactor(50))];
     [self.view addSubview:topBar];
     
     // 设置闪光灯的开关
@@ -147,6 +150,13 @@
     /*
         TODO: 此处需要添加一些动画效果，后期再补充
      */
+}
+
+/*!
+ *   @brief 创建设置菜单
+ */
+- (void)setupSettings {
+    
 }
 
 @end
