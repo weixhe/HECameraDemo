@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		451027311F38453700E72438 /* HECameraSettingView.m in Sources */ = {isa = PBXBuildFile; fileRef = 451027301F38453700E72438 /* HECameraSettingView.m */; };
 		4523E7A01F14C0F600A4D7BD /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E79F1F14C0F600A4D7BD /* main.m */; };
 		4523E7A31F14C0F600A4D7BD /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7A21F14C0F600A4D7BD /* AppDelegate.m */; };
 		4523E7A61F14C0F600A4D7BD /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4523E7A51F14C0F600A4D7BD /* ViewController.m */; };
@@ -42,6 +43,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		4510272F1F38453700E72438 /* HECameraSettingView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HECameraSettingView.h; sourceTree = "<group>"; };
+		451027301F38453700E72438 /* HECameraSettingView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HECameraSettingView.m; sourceTree = "<group>"; };
 		4523E79B1F14C0F600A4D7BD /* HECameraDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HECameraDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4523E79F1F14C0F600A4D7BD /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		4523E7A11F14C0F600A4D7BD /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -179,6 +182,8 @@
 				45AE8AED1F18B10A008091FE /* HECameraBottomBar.m */,
 				457B07351F2721E10037A7A0 /* HECameraTopBar.h */,
 				457B07361F2721E10037A7A0 /* HECameraTopBar.m */,
+				4510272F1F38453700E72438 /* HECameraSettingView.h */,
+				451027301F38453700E72438 /* HECameraSettingView.m */,
 			);
 			path = HECamera;
 			sourceTree = "<group>";
@@ -322,6 +327,7 @@
 				4523E7A61F14C0F600A4D7BD /* ViewController.m in Sources */,
 				457B07371F2721E10037A7A0 /* HECameraTopBar.m in Sources */,
 				4523E7A31F14C0F600A4D7BD /* AppDelegate.m in Sources */,
+				451027311F38453700E72438 /* HECameraSettingView.m in Sources */,
 				45AE8AF11F18CD9D008091FE /* UIImage+FixOrientation.m in Sources */,
 				45D983F01F1778FB00C82C1D /* HESimpleCamera+Helper.m in Sources */,
 				45AE8AEE1F18B10A008091FE /* HECameraBottomBar.m in Sources */,

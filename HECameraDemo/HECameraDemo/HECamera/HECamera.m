@@ -11,10 +11,13 @@
 #import "HECameraBottomBar.h"
 #import "HECameraTopBar.h"
 #import "HECameraConstant.h"
+#import "HECameraSettingView.h"
 
 @interface HECamera ()
 
 @property (nonatomic, strong) HESimpleCamera *camera;
+
+@property (nonatomic, strong) HECameraSettingView *settingView;
 
 @end
 
@@ -125,6 +128,13 @@
     bottomBar.BlockOnCancel = ^{
         [weakSelf dismissViewControllerAnimated:YES completion:nil];
     };
+    
+    // 设置功能
+    bottomBar.BlockOnShowSettings = ^{
+      
+        weakSelf.settingView.currentISO = weakSelf.camera.ISO;
+        weakSelf.settingView.hidden = !weakSelf.settingView.hidden;
+    };
 }
 
 /*!
@@ -150,13 +160,23 @@
     /*
         TODO: 此处需要添加一些动画效果，后期再补充
      */
+    
+    
 }
 
 /*!
  *   @brief 创建设置菜单
  */
 - (void)setupSettings {
-    
+    if (!self.settingView) {
+        self.settingView = [[HECameraSettingView alloc] initWithFrame:CGRectMake(0, SCREEN_HEIGHT - kDeviceScaleFactor(80) - 100, SCREEN_WIDTH, 100)];
+        self.settingView.hidden = YES;
+        [self.view addSubview:self.settingView];
+        __weak typeof(self) weakSelf = self;
+        self.settingView.BlockOnISOValueChanged = ^(CGFloat ISO) {
+            [weakSelf.camera setCameraISO:ISO];
+        };
+    }
 }
 
 @end

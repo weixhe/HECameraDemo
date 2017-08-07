@@ -295,27 +295,13 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         
         NSError *error = nil;
         if ([self.videoCaptureDevice lockForConfiguration:&error]) {
-            [self.videoCaptureDevice rampToVideoZoomFactor:_effectiveScale withRate:50];
+            [self.videoCaptureDevice rampToVideoZoomFactor:_effectiveScale withRate:10];
             [self.videoCaptureDevice unlockForConfiguration];
         } else {
             [self passError:error];
         }
     }
 }
-
-//// 焦距范围0.0-1.0
-//- (void)cameraBackgroundDidChangeFocus:(CGFloat)focus {
-//    AVCaptureDevice *captureDevice = self.audioCaptureDevice;
-//    NSError *error;
-//    if ([captureDevice lockForConfiguration:&error]) {
-//        if ([captureDevice isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus]) {
-//            [captureDevice setFocusModeLockedWithLensPosition:focus completionHandler:nil];
-//        }
-//    } else {
-//        // Handle the error appropriately.
-//    }
-//}
-
 
 #pragma mark - UIGestureDelegate
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
@@ -822,6 +808,24 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 }
 
 /*!
+ *   @brief 调节感光度, ISO取值范围0.0~1.0
+ */
+- (void)setCameraISO:(CGFloat)ISO {
+    ISO = MAX(ISO, 0.0);
+    ISO = MIN(ISO, 1.0);
+    CGFloat currentISO = (self.videoCaptureDevice.activeFormat.maxISO - self.videoCaptureDevice.activeFormat.minISO) * ISO + self.videoCaptureDevice.activeFormat.minISO;
+    NSError *error = nil;
+    if ([self.videoDeviceInput.device lockForConfiguration:&error]) {
+        
+        [self.videoCaptureDevice setExposureModeCustomWithDuration:AVCaptureExposureDurationCurrent ISO:currentISO completionHandler:nil];
+        [self.videoCaptureDevice unlockForConfiguration];
+        _ISO = ISO;
+    } else {
+        [self passError:error];
+    }
+}
+
+/*!
  *   @brief 根据选择的摄像头位置，选择出相应的device设备，如果找不到设备中没有摄像头，则返回nil
  */
 - (AVCaptureDevice *)cameraWithPosition:(AVCaptureDevicePosition)position {
@@ -879,7 +883,8 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     videoCaptureDevice.flashMode = _flash == HECameraFlashOn ? AVCaptureFlashModeOn : _flash == AVCaptureFlashModeAuto ? AVCaptureFlashModeAuto : AVCaptureFlashModeOff;
 #endif
     self.effectiveScale = 1.0f;
-    
+    _ISO = (videoCaptureDevice.ISO - self.videoCaptureDevice.activeFormat.minISO) / (self.videoCaptureDevice.activeFormat.maxISO - self.videoCaptureDevice.activeFormat.minISO);
+
     if (self.BlockOnDeviceChange) {
         __weak typeof(self) weakSelf = self;
         self.BlockOnDeviceChange(weakSelf, videoCaptureDevice);

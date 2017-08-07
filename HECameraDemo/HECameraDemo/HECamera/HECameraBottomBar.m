@@ -15,6 +15,8 @@
 
 @property (nonatomic, strong) UIButton *cancelButton;
 
+@property (nonatomic, strong) UIButton *settingButton;
+
 @end
 
 @implementation HECameraBottomBar
@@ -44,6 +46,11 @@
     [self.cancelButton addTarget:self action:@selector(onCancelAction:) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.cancelButton];
     
+    self.settingButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    [self.settingButton setImage:UIImageFromCameraBundle(@"settings") forState:UIControlStateNormal];
+    [self.settingButton addTarget:self action:@selector(onClickSettingAction:) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:self.settingButton];
+    
 }
 
 - (void)layoutSubviews {
@@ -53,6 +60,9 @@
     
     self.cancelButton.frame = CGRectMake(0, 0, CGRectGetHeight(self.frame), CGRectGetHeight(self.frame));
     self.cancelButton.center = CGPointMake(kDeviceScaleFactor(30), CGRectGetHeight(self.frame) / 2);
+    
+    self.settingButton.frame = CGRectMake(0, 0, CGRectGetHeight(self.frame), CGRectGetHeight(self.frame));
+    self.settingButton.center = CGPointMake(CGRectGetWidth(self.frame) - CGRectGetHeight(self.frame) / 2, CGRectGetHeight(self.frame) / 2);
 }
 
 #pragma mark - UIButton Action
@@ -72,6 +82,15 @@
 - (void)onCancelAction:(UIButton *)button {
     if (self.BlockOnCancel) {
         self.BlockOnCancel();
+    }
+}
+
+/*!
+ *   @brief 按钮事件 - 设置功能，显示、隐藏设置面板
+ */
+- (void)onClickSettingAction:(UIButton *)button {
+    if (self.BlockOnShowSettings) {
+        self.BlockOnShowSettings();
     }
 }
 

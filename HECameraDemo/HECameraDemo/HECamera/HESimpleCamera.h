@@ -71,6 +71,11 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
 
 @property (nonatomic, assign, readonly) HECameraMirror mirror;
 
+/*!
+ *   @brief 感光度, ISO取值范围0.0~1.0
+ */
+@property (nonatomic, assign, readonly) CGFloat ISO;
+
 /**
  *  @brief 默认：AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance
  */
@@ -209,6 +214,11 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
  *   @brief 切换前后摄像头位置，并返回当前使用的哪个摄像头
  */
 - (HECameraPosition)togglePosition;
+
+/*!
+ *   @brief 调节感光度, ISO取值范围0.0~1.0
+ */
+- (void)setCameraISO:(CGFloat)ISO;
 
 @end
 

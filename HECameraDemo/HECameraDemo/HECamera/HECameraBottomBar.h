@@ -20,4 +20,6 @@
  */
 @property (nonatomic, strong) void (^BlockOnCancel)();
 
+@property (nonatomic, copy) void (^BlockOnShowSettings)();
+
 @end

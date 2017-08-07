@@ -9,9 +9,7 @@
 #import "HESimpleCamera+Helper.h"
 
 @implementation HESimpleCamera (Helper)
-- (CGPoint)convertToPointOfInterestFromViewCoordinates:(CGPoint)viewCoordinates
-                                          previewLayer:(AVCaptureVideoPreviewLayer *)previewLayer
-                                                 ports:(NSArray<AVCaptureInputPort *> *)ports
+- (CGPoint)convertToPointOfInterestFromViewCoordinates:(CGPoint)viewCoordinates previewLayer:(AVCaptureVideoPreviewLayer *)previewLayer ports:(NSArray<AVCaptureInputPort *> *)ports
 {
     CGPoint pointOfInterest = CGPointMake(.5f, .5f);
     CGSize frameSize = previewLayer.frame.size;
