@@ -26,9 +26,9 @@
 #pragma mark - Initialize
 - (void)initialize {
     self.camera = [[HESimpleCamera alloc] initWithVideoEnabled:NO];
-    [self.camera attachToViewController:self withFrame:self.view.bounds];
+    [self.camera attachToViewController:self withFrame:CGRectMake(0, 0, SCREEN_WIDTH, 250)];
     self.camera.fixOrientationAfterCapture = YES;
-    [self.camera start];
+    [self.camera startSession];
     
     [self.camera setBlockOnDeviceChange:^(HESimpleCamera *camera, AVCaptureDevice *device) {
         // 判断是否支持闪光灯，如果支持，则显示闪光灯按钮，如果不支持，则将闪光灯的按钮隐藏
@@ -120,7 +120,6 @@
         [weakSelf.camera captureImage:^(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error) {
             HELog(@"%@", image);
             HELog(@"%@", metaData);
-
         }];
     };
     
@@ -156,12 +155,6 @@
         [weakSelf.camera togglePosition];
         HELog(@"togglePosition");
     };
-    
-    /*
-        TODO: 此处需要添加一些动画效果，后期再补充
-     */
-    
-    
 }
 
 /*!

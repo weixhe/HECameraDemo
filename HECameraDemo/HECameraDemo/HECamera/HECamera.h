@@ -10,4 +10,5 @@
 
 @interface HECamera : UIViewController
 
+
 @end

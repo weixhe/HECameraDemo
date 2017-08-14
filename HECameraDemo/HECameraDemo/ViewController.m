@@ -8,6 +8,8 @@
 
 #import "ViewController.h"
 #import "HECamera.h"
+#import "HEVideos.h"
+#import "HERecordMoviesViewController.h"
 
 @interface ViewController ()
 
@@ -26,6 +28,15 @@
     [first addTarget:self action:@selector(onFirstAction) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:first];
     
+    UIButton *second = [UIButton buttonWithType:UIButtonTypeCustom];
+    second.frame = CGRectMake(100, 0, 80, 44);
+    second.center = CGPointMake(self.view.frame.size.width / 2, 160);
+    [second setTitle:@"录像机" forState:UIControlStateNormal];
+    second.backgroundColor = [UIColor colorWithRed:125/255.0 green:248/255.0 blue:246/255.0 alpha:1];
+    [second addTarget:self action:@selector(onSecondAction) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:second];
+
+    
 }
 
 
@@ -39,5 +50,9 @@
     [self presentViewController:camera animated:YES completion:nil];
 }
 
+- (void)onSecondAction {
+    HERecordMoviesViewController *recordMovieVC = [[HERecordMoviesViewController alloc] init];
+    [self.navigationController pushViewController:recordMovieVC animated:YES];
+}
 
 @end

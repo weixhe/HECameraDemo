@@ -26,11 +26,24 @@ typedef NS_ENUM(NSUInteger, HECameraFlash) {
     HECameraFlashAuto = 2
 };
 
+/*!
+ *   @brief 手电筒的状态
+ */
+typedef NS_ENUM(NSUInteger, HECameraTorch) {
+    HECameraTorchOff = 0,
+    HECameraTorchOn = 1,
+    HECameraTorchAuto = 2
+};
+
+/*!
+ *   @brief **
+ */
 typedef NS_ENUM(NSUInteger, HECameraMirror) {
     HECameraMirrorOff,
     HECameraMirrorOn,
     HECameraMirrorAuto,
 };
+
 
 /*!
  *   @brief 错误码
@@ -39,7 +52,9 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
     HECameraErrorCodeCameraPermission = 10,
     HECameraErrorCodeMicrophonePermission = 11,
     HECameraErrorCodeSession = 12,
-    HECameraErrorCodeVideoNotEnabled = 13
+    HECameraErrorCodeVideoNotEnabled = 13,
+    HECameraErrorCodeNotAvaliableFlash = 14,
+    HECameraErrorCodeNotAvaliableTorch = 15
 };
 
 @interface HESimpleCamera : UIViewController
@@ -69,6 +84,11 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
  */
 @property (nonatomic, assign, readonly) HECameraFlash flash;
 
+/*!
+ *   @brief 手电筒的状态：开、关、自动
+ */
+@property (nonatomic, assign, readonly) HECameraTorch torch;
+
 @property (nonatomic, assign, readonly) HECameraMirror mirror;
 
 /*!
@@ -81,7 +101,7 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
  */
 @property (nonatomic) AVCaptureWhiteBalanceMode whiteBalanceMode;
 
-@property (nonatomic, assign) BOOL has;
+//@property (nonatomic, assign) BOOL has;
 
 /*!
  *   @brief 是否能录像
@@ -89,9 +109,10 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
 @property (nonatomic, getter=isVideoEnabled) BOOL videoEnable;
 
 /*!
- *   @brief 是否正在录制视频
+ *   @brief 录制视频的状态，正在录制，暂停，
  */
-@property (nonatomic, getter=isRecording) BOOL recording;
+@property (nonatomic, getter=isRecording, readonly) BOOL recording;
+@property (nonatomic, getter=isPaused, readonly) BOOL paused;
 
 /*!
  *  @brief 是否允许调焦距, 默认：YES
@@ -117,6 +138,11 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
  *   @brief 是否根据设备的方向自动旋转，默认：YES
  */
 @property (nonatomic, assign) BOOL useDeviceOrientation;
+
+/*!
+ *   @brief 自动保存到相册
+ */
+@property (nonatomic, assign) BOOL autoSaveToPhotoAlbum;
 
 #pragma mark - Initialize
 /*!
@@ -149,12 +175,12 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
 /*!
  *   @brief 开始工作，显示图像
  */
-- (void)start;
+- (void)startSession;
 
 /*!
  *   @brief 结束工作
  */
-- (void)stop;
+- (void)stopSession;
 
 #pragma mark - Image Capture
 
@@ -181,6 +207,25 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
 
 #pragma mark - Video Capture
 
+/*!
+ *   @brief 开始录制视频，传入目的地址，和回调的block
+ */
+- (void)startRecordingWithOutputPath:(NSString *)path progress:(void (^)(HESimpleCamera *camera, CGFloat time))progress;
+
+/*!
+ *   @brief 暂停录制
+ */
+- (void)pauseRecording;
+
+/*!
+ *   @brief 继续录制
+ */
+- (void)resumeRecording;
+
+/*!
+ *   @brief 停止录制, block返回第一针的图片
+ */
+- (void)stopRecording:(void (^)(UIImage *thumb, NSString *outputPath))handler;
 
 #pragma mark - Focus
 /*!
@@ -204,6 +249,11 @@ typedef NS_ENUM(NSUInteger, HECameraErrorCode) {
  *   @brief 设置闪光灯的模式，分为三种{HECameraFlashOff， HECameraFlashOn, HECameraFlashAuto}
  */
 - (BOOL)setFlashMode:(HECameraFlash)cameraFlash;
+
+/*!
+ *   @brief 设置手电筒的状态
+ */
+- (BOOL)setTorchMode:(HECameraTorch)torchMode;
 
 /*!
  *   @brief 设置白平衡

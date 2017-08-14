@@ -11,15 +11,30 @@
 #import "HESimpleCamera+Helper.h"
 #import <ImageIO/CGImageProperties.h>
 #import "UIImage+FixOrientation.h"
+#import "HERecordEncoder.h"
+#import <Photos/Photos.h>
 
 NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
+char * queueName = "com.weixhe.im.camera.video.queue";
 
 
-@interface HESimpleCamera () <UIGestureRecognizerDelegate
+@interface HESimpleCamera () <UIGestureRecognizerDelegate, AVCaptureAudioDataOutputSampleBufferDelegate, AVCaptureVideoDataOutputSampleBufferDelegate
 #if SDK_Above_10_0
 , AVCapturePhotoCaptureDelegate
 #endif
 >
+{
+    CMTime _timeOffset;     // 录制的偏移CMTime, 当有暂停时起作用
+    CMTime _lastVideo;      // 记录上一次视频数据文件的CMTime
+    CMTime _lastAudio;      // 记录上一次音频数据文件的CMTime
+    BOOL _interrupt;        // 是否被的打断，对应‘暂停’时刻
+    size_t _videoSize;
+    
+    NSInteger _cx;      // 视频分辨的宽
+    NSInteger _cy;      // 视频分辨的高
+    int _channels;      // 音频通道
+    Float64 _samplerate;    // 音频采样率
+}
 
 #if SDK_Above_10_0  //  __IPHONE_10_0 == 100000
 @property (nonatomic, strong) AVCapturePhotoOutput *photoOutput;
@@ -37,7 +52,16 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 @property (nonatomic, strong) AVCaptureDeviceInput *videoDeviceInput;   // 输入源
 @property (nonatomic, strong) AVCaptureDeviceInput *audioDeviceInput;
 @property (nonatomic, strong) AVCaptureVideoPreviewLayer *captureVideoPreviewLayer; // 显示图像的层layer
-@property (strong, nonatomic) AVCaptureMovieFileOutput *movieFileOutput;
+//@property (strong, nonatomic) AVCaptureMovieFileOutput *movieFileOutput;
+@property (nonatomic, strong) AVCaptureVideoDataOutput *videoDataOutput;
+@property (nonatomic, strong) AVCaptureAudioDataOutput *audioDataOutput;
+@property (nonatomic, strong) dispatch_queue_t videoQueue;
+@property (nonatomic, strong) HERecordEncoder *encoder;
+@property (atomic, assign) CMTime startTime;// 开始录制的时间
+@property (atomic, assign) CGFloat currentRecordTime;// 当前录制时间
+@property (atomic, assign) CGFloat maxRecordTime;// 录制最长时间
+@property (nonatomic, copy) NSString * videoPath;       // 保存video的路径
+
 
 @property (nonatomic, strong) UITapGestureRecognizer *tapGesture;
 @property (nonatomic, strong) CALayer *focusBoxLayer;
@@ -46,7 +70,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 @property (nonatomic, assign) CGFloat beginGestureScale;
 @property (nonatomic, assign) CGFloat effectiveScale;
 
-@property (nonatomic, copy) void (^BlockOnDidComplete)(HESimpleCamera *camere, NSURL *outputFileUrl, NSError *error);
+@property (nonatomic, copy) void (^BlockOnProgressing)(HESimpleCamera *camere, CGFloat time);
 @property (nonatomic, copy) void (^BlockOnDidCaptured)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error);
 @property (nonatomic, assign) BOOL exactedSize;
 
@@ -56,7 +80,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 
 - (void)dealloc
 {
-    [self stop];
+    [self stopSession];
 }
 
 #pragma mark - Initialize
@@ -106,13 +130,15 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     _tapToFocus = YES;
     _useDeviceOrientation = NO;
     _flash = HECameraFlashAuto;
+    _torch = HECameraTorchAuto;
     _mirror = HECameraMirrorOff;
     _recording = NO;
     _zoomingEnabled = YES;
 //    _maxScale =
     _effectiveScale = 1.0f;
+    
 #if SDK_Above_10_0
-    self.photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
+    _photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:@{AVVideoCodecKey:AVVideoCodecJPEG}];
 #endif
 
 }
@@ -257,12 +283,15 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     if (!self.tapToFocus) {
         return;
     }
-    
-    CGPoint touchedPoint = [gesture locationInView:self.preView];
-    CGPoint pointOfInterest = [self convertToPointOfInterestFromViewCoordinates:touchedPoint previewLayer:self.captureVideoPreviewLayer ports:self.videoDeviceInput.ports];
+    [self touchPoint:[gesture locationInView:self.preView]];
+}
+
+- (void)touchPoint:(CGPoint)point {
+    CGPoint pointOfInterest = [self convertToPointOfInterestFromViewCoordinates:point previewLayer:self.captureVideoPreviewLayer ports:self.videoDeviceInput.ports];
     
     [self focusAtPoint:pointOfInterest];
-    [self showFocusBox:touchedPoint];
+    [self showFocusBox:point];
+
 }
 
 /*!
@@ -369,7 +398,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
             self.captureVideoPreviewLayer.connection.videoOrientation = [self orientationForConnection];
         }
         
-        // 判断录像，如果可以录像，则需要添加录音功能, 和影响的输出功能
+        // 判断录像，如果可以录像，则需要添加录音功能, 和影像的输出功能
         if (self.videoEnable) {
             self.audioCaptureDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeAudio];
             self.audioDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:self.audioCaptureDevice error:&error];
@@ -381,29 +410,34 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
                 [self.session addInput:self.audioDeviceInput];
             }
             
-            self.movieFileOutput = [[AVCaptureMovieFileOutput alloc] init];
-            [self.movieFileOutput setMovieFragmentInterval:kCMTimeInvalid];
-            if ([self.session canAddOutput:self.movieFileOutput]) {
-                [self.session addOutput:self.movieFileOutput];
+            self.videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
+            self.audioDataOutput = [[AVCaptureAudioDataOutput alloc] init];
+            
+            if ([self.session canAddOutput:self.videoDataOutput]) {
+                [self.session addOutput:self.videoDataOutput];
             }
+            if ([self.session canAddOutput:self.audioDataOutput]) {
+                [self.session addOutput:self.audioDataOutput];
+            }
+            
+            // 初始化video的配置
+            self.videoDataOutput.videoSettings = [self setDefaultVideoSettings];
+            self.videoQueue = dispatch_queue_create(queueName, DISPATCH_QUEUE_SERIAL);
+            [self.videoDataOutput setSampleBufferDelegate:self queue:self.videoQueue];
+            [self.audioDataOutput setSampleBufferDelegate:self queue:self.videoQueue];
+            // 设置视频的分辨率
+            _cx = 720;
+            _cy = 1280;
+            _maxRecordTime = 60.0f;  // 最多录制默认60s
         }
         
         // 设置自动，不停的调整白平衡
         self.whiteBalanceMode = AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance;
 #if SDK_Above_10_0
-        
         // 图片的输出， 预先设置一些属性
         self.photoOutput = [[AVCapturePhotoOutput alloc] init];
-//        __weak typeof(self) weakSelf = self;
-//        [self.photoOutput setPreparedPhotoSettingsArray:@[[AVCapturePhotoSettings photoSettingsWithRawPixelFormatType:1]] completionHandler:^(BOOL prepared, NSError * _Nullable error) {
-//            if (error) {
-//                [weakSelf passError:error];
-//            }
-//        }];
         if ([self.session canAddOutput:self.photoOutput]) {
             [self.session addOutput:self.photoOutput];
-            HELog(@"%@", self.photoOutput.availableRawPhotoPixelFormatTypes);
-
         }
 #else
         // 图片的输出
@@ -424,13 +458,12 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     
     // 开始工作
     [self.session startRunning];
-
 }
 
 /*!
  *   @brief 开始工作，显示图像
  */
-- (void)start {
+- (void)startSession {
     [self requestCameraPermission:^(BOOL granted) {
         if (granted) {
             if (self.videoEnable) {
@@ -455,7 +488,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 /*!
  *   @brief 结束工作
  */
-- (void)stop {
+- (void)stopSession {
     [self.session stopRunning];
     self.session = nil;
 }
@@ -527,10 +560,160 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  */
 - (void)captureImage:(void (^)(HESimpleCamera *camera, UIImage *image, NSDictionary *metaData, NSError *error))onCapture {
     [self captureImage:onCapture exactedSize:NO];
-
 }
 
 #pragma mark - Video Capture
+/*!
+ *   @brief 开始录制视频，传入目的地址，和回调的block
+ */
+- (void)startRecordingWithOutputPath:(NSString *)path progress:(void (^)(HESimpleCamera *camera, CGFloat time))progress {
+    // check if video is enabled
+    if (!self.videoEnable) {
+        NSError *error = [NSError errorWithDomain:HESimpleCameraErrorDomain code:HECameraErrorCodeVideoNotEnabled userInfo:nil];
+        [self passError:error];
+        return;
+    }
+    
+    [self setTorchMode:self.torch];
+
+    if (!_recording) {
+        _videoPath = path;
+        _BlockOnProgressing = progress;
+        _recording = YES;
+        _paused = NO;
+        _encoder = nil;
+        _startTime = CMTimeMake(0, 0);
+        _currentRecordTime = 0;
+        _videoSize = 0;
+        
+        AVCaptureConnection *connection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
+        connection.videoOrientation = [self orientationForConnection];
+    }
+}
+
+/*!
+ *   @brief 暂停录制
+ */
+- (void)pauseRecording {
+    if(!self.videoEnable) {
+        return;
+    }
+    if (_recording) {
+        _paused = YES;
+        _interrupt = YES;
+    }
+}
+
+/*!
+ *   @brief 继续录制
+ */
+- (void)resumeRecording {
+    if(!self.videoEnable) {
+        return;
+    }
+    if (_paused) {
+        _paused = NO;
+    }
+}
+
+/*!
+ *   @brief 停止录制, block返回第一针的图片
+ */
+- (void)stopRecording:(void (^)(UIImage *thumb, NSString *outputPath))handler {
+    if(!self.videoEnable) {
+        return;
+    }
+    
+    @synchronized(self) {
+        if (_recording) {
+            NSString *path = self.videoPath;
+            NSURL *url = [NSURL fileURLWithPath:path];
+            _recording = NO;
+            dispatch_async(self.videoQueue, ^{
+                [self.encoder finishWithCompletionHandler:^{
+                    _recording = NO;
+                    _paused = NO;
+                    _encoder = nil;
+                    _startTime = CMTimeMake(0, 0);
+                    _currentRecordTime = 0;
+                    _videoSize = 0;
+                    if (self.BlockOnProgressing) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            __weak typeof(self) weakSelf = self;
+                            self.BlockOnProgressing(weakSelf, weakSelf.currentRecordTime);
+                        });
+                    }
+                    if (self.autoSaveToPhotoAlbum) {
+                        [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+                            [PHAssetChangeRequest creationRequestForAssetFromVideoAtFileURL:url];
+                        } completionHandler:^(BOOL success, NSError * _Nullable error) {
+                            HELog(@"保存成功");
+                        }];
+                    }
+                    [self movieToFirstImageHandler:handler];
+                }];
+            });
+        }
+    }
+}
+
+/*!
+ *   @brief 默认的video的配置
+ */
+- (NSDictionary *)setDefaultVideoSettings {
+    NSDictionary *defaultSetting = @{(id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_32BGRA)};
+    return defaultSetting;
+}
+
+/*!
+ *   @brief 设置音频格式
+ */
+- (void)setAudioFormat:(CMFormatDescriptionRef)fmt {
+    const AudioStreamBasicDescription *asbd = CMAudioFormatDescriptionGetStreamBasicDescription(fmt);
+    _samplerate = asbd->mSampleRate;
+    _channels = asbd->mChannelsPerFrame;
+}
+
+// 调整媒体数据的时间
+- (CMSampleBufferRef)adjustTime:(CMSampleBufferRef)sample by:(CMTime)offset {
+    CMItemCount count;
+    CMSampleBufferGetSampleTimingInfoArray(sample, 0, nil, &count);
+    CMSampleTimingInfo* pInfo = malloc(sizeof(CMSampleTimingInfo) * count);
+    CMSampleBufferGetSampleTimingInfoArray(sample, count, pInfo, &count);
+    for (CMItemCount i = 0; i < count; i++) {
+        pInfo[i].decodeTimeStamp = CMTimeSubtract(pInfo[i].decodeTimeStamp, offset);
+        pInfo[i].presentationTimeStamp = CMTimeSubtract(pInfo[i].presentationTimeStamp, offset);
+    }
+    CMSampleBufferRef sout;
+    CMSampleBufferCreateCopyWithNewTiming(nil, sample, count, pInfo, &sout);
+    free(pInfo);
+    return sout;
+}
+
+/*!
+ *   @brief 获取视频第一帧的图片
+ */
+- (void)movieToFirstImageHandler:(void (^)(UIImage *thumb, NSString *outputPath))handler {
+    NSURL *url = [NSURL fileURLWithPath:self.videoPath];
+    AVURLAsset *asset = [[AVURLAsset alloc] initWithURL:url options:nil];
+    AVAssetImageGenerator *generator = [[AVAssetImageGenerator alloc] initWithAsset:asset];
+    generator.appliesPreferredTrackTransform = TRUE;
+    CMTime thumbTime = CMTimeMakeWithSeconds(0, 60);
+    generator.apertureMode = AVAssetImageGeneratorApertureModeEncodedPixels;
+    AVAssetImageGeneratorCompletionHandler generatorHandler =
+    ^(CMTime requestedTime, CGImageRef im, CMTime actualTime, AVAssetImageGeneratorResult result, NSError *error){
+        if (result == AVAssetImageGeneratorSucceeded) {
+            UIImage *thumbImg = [UIImage imageWithCGImage:im];
+            if (handler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    handler(thumbImg, self.videoPath);
+                });
+            }
+        }
+    };
+    [generator generateCGImagesAsynchronouslyForTimes:
+    [NSArray arrayWithObject:[NSValue valueWithCMTime:thumbTime]] completionHandler:generatorHandler];
+}
 
 
 #pragma mark - Focus
@@ -570,15 +753,23 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  */
 - (void)focusAtPoint:(CGPoint)point {
     AVCaptureDevice *device = self.videoCaptureDevice;
-    if ([device isFocusPointOfInterestSupported] && [device isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {
-        NSError *error;
-        if ([device lockForConfiguration:&error]) {
-            device.focusMode = AVCaptureFocusModeAutoFocus;
+    NSError *error;
+    if ([device lockForConfiguration:&error]) {
+        if ([device isFocusPointOfInterestSupported]) {     // 设定聚焦点
             device.focusPointOfInterest = point;
-            [device unlockForConfiguration];
-        } else {
-            [self passError:error];
         }
+        if ([device isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {    // 设定聚焦模式
+            device.focusMode = AVCaptureFocusModeAutoFocus;
+        }
+        
+        if ([device isExposurePointOfInterestSupported]) {      // 设定曝光点
+            device.exposurePointOfInterest = point;
+        }
+        if ([device isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure]) { // 设定曝光模式
+            device.exposureMode = AVCaptureExposureModeContinuousAutoExposure;
+        }
+    } else {
+        [self passError:error];
     }
 }
 
@@ -618,7 +809,6 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  */
 - (BOOL)isTorchAvailable {
     return self.videoCaptureDevice.hasTorch && self.videoCaptureDevice.isTorchAvailable;
-
 }
 
 /*!
@@ -626,6 +816,11 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
  */
 - (BOOL)setFlashMode:(HECameraFlash)cameraFlash {
     if (!self.session || cameraFlash == _flash) {
+        return NO;
+    }
+    
+    if (![self isFlashAvailable]) {
+        [self passError:[NSError errorWithDomain:HESimpleCameraErrorDomain code:HECameraErrorCodeNotAvaliableFlash userInfo:nil]];
         return NO;
     }
     
@@ -673,6 +868,51 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
 }
 
 /*!
+ *   @brief 设置手电筒的状态
+ */
+- (BOOL)setTorchMode:(HECameraTorch)torchMode {
+    if (!self.session) {
+        return NO;
+    }
+    
+    if (![self isTorchAvailable]) {
+        [self passError:[NSError errorWithDomain:HESimpleCameraErrorDomain code:HECameraErrorCodeNotAvaliableTorch userInfo:nil]];
+        return NO;
+    }
+    
+    AVCaptureTorchMode torch;
+    switch (torchMode) {
+        case HECameraTorchOn:
+            torch = AVCaptureTorchModeOn;
+            break;
+        case HECameraTorchOff:
+            torch = AVCaptureTorchModeOff;
+            break;
+        case HECameraTorchAuto:
+            torch = AVCaptureTorchModeAuto;
+            break;
+            
+        default:
+            torch = AVCaptureTorchModeAuto;
+            break;
+    }
+
+    if ([self.videoCaptureDevice isTorchModeSupported:torch]) {
+        NSError *error;
+        if ([self.videoCaptureDevice lockForConfiguration:&error]) {
+            self.videoCaptureDevice.torchMode = torch;
+            [self.videoCaptureDevice unlockForConfiguration];
+            _torch = torchMode;
+            return YES;
+        } else {
+            [self passError:error];
+            return NO;
+        }
+    }
+    return NO;
+}
+
+/*!
  *   @brief 设置白平衡
  */
 - (void)setWhiteBalanceMode:(AVCaptureWhiteBalanceMode)whiteBalanceMode {
@@ -698,46 +938,66 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     if (!self.session) {
         return;
     }
-    
-    AVCaptureConnection *videoConnection = [self.movieFileOutput connectionWithMediaType:AVMediaTypeVideo];
-#if SDK_Above_10_0
-    AVCaptureConnection *pictureConnection = [self.photoOutput connectionWithMediaType:AVMediaTypeVideo];
-#else
-    AVCaptureConnection *pictureConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
-#endif
-    switch (mirror) {
-        case HECameraMirrorOn: {
-            if ([videoConnection isVideoMirroringSupported]) {
-                [videoConnection setVideoMirrored:YES];
-            }
-            if ([pictureConnection isVideoMirroringSupported]) {
-                [pictureConnection setVideoMirrored:YES];
-            }
-            
-            break;
-        }
-        case HECameraMirrorOff: {
-            if ([videoConnection isVideoMirroringSupported]) {
-                [videoConnection setVideoMirrored:NO];
-            }
-            if ([pictureConnection isVideoMirroringSupported]) {
-                [pictureConnection setVideoMirrored:NO];
-            }
+    if (self.isVideoEnabled) {
+        AVCaptureConnection *videoConnection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
+//        [self.audioDataOutput connectionWithMediaType:AVMediaTypeAudio];
+        switch (mirror) {
+            case HECameraMirrorOn: {
+                if ([videoConnection isVideoMirroringSupported]) {
+                    [videoConnection setVideoMirrored:YES];
+                }
 
-            break;
-        }
-        case HECameraMirrorAuto: {
-            BOOL shouldMirror = (self.position == HECameraPositionFront);
-            if ([videoConnection isVideoMirroringSupported]) {
-                [videoConnection setVideoMirrored:shouldMirror];
+                break;
             }
-            if ([pictureConnection isVideoMirroringSupported]) {
-                [pictureConnection setVideoMirrored:shouldMirror];
+            case HECameraMirrorOff: {
+                if ([videoConnection isVideoMirroringSupported]) {
+                    [videoConnection setVideoMirrored:NO];
+                }
+                
+                break;
             }
-            break;
+            case HECameraMirrorAuto: {
+                BOOL shouldMirror = (self.position == HECameraPositionFront);
+                if ([videoConnection isVideoMirroringSupported]) {
+                    [videoConnection setVideoMirrored:shouldMirror];
+                }
+                break;
+            }
+            default:
+                break;
         }
-        default:
-            break;
+    } else {
+        
+#if SDK_Above_10_0
+        AVCaptureConnection *pictureConnection = [self.photoOutput connectionWithMediaType:AVMediaTypeVideo];
+#else
+        AVCaptureConnection *pictureConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
+#endif
+        switch (mirror) {
+            case HECameraMirrorOn: {
+                if ([pictureConnection isVideoMirroringSupported]) {
+                    [pictureConnection setVideoMirrored:YES];
+                }
+                
+                break;
+            }
+            case HECameraMirrorOff: {
+                if ([pictureConnection isVideoMirroringSupported]) {
+                    [pictureConnection setVideoMirrored:NO];
+                }
+                
+                break;
+            }
+            case HECameraMirrorAuto: {
+                BOOL shouldMirror = (self.position == HECameraPositionFront);
+                if ([pictureConnection isVideoMirroringSupported]) {
+                    [pictureConnection setVideoMirrored:shouldMirror];
+                }
+                break;
+            }
+            default:
+                break;
+        }
     }
 }
 
@@ -755,6 +1015,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     } else {
         [self setCameraPosition:HECameraPositionFront];
     }
+    [self changeCameraAnimation];
     return _position;
 }
 
@@ -824,6 +1085,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         [self passError:error];
     }
 }
+
 
 /*!
  *   @brief 根据选择的摄像头位置，选择出相应的device设备，如果找不到设备中没有摄像头，则返回nil
@@ -967,7 +1229,7 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
         }
 #if SDK_Above_10_0
         NSData *data = [AVCapturePhotoOutput JPEGPhotoDataRepresentationForJPEGSampleBuffer:photoSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
-        UIImage *image = [UIImage imageWithData:data];
+        image = [UIImage imageWithData:data];
 #else
         NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:photoSampleBuffer];
         image = [UIImage imageWithData:imageData];
@@ -983,37 +1245,36 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     
     // 结果回调
     if (self.BlockOnDidCaptured) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            self.BlockOnDidCaptured(self, image, metaData, nil);
-        });
+        
+        if ([NSThread isMainThread]) {
+            __weak typeof(self) weakSelf = self;
+            self.BlockOnDidCaptured(weakSelf, image, metaData, nil);
+        } else {
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                __weak typeof(self) weakSelf = self;
+                self.BlockOnDidCaptured(weakSelf, image, metaData, nil);
+            });
+        }
     }
-
 }
+    
+#pragma mark - 切换动画
+- (void)changeCameraAnimation {
+    CATransition *changeAnimation = [CATransition animation];
+//        changeAnimation.delegate = self;
+    changeAnimation.duration = 0.45;
+    changeAnimation.type = @"oglFlip";
+    changeAnimation.subtype = kCATransitionFromRight;
+    changeAnimation.timingFunction = UIViewAnimationCurveEaseInOut;
+    [self.preView.layer addAnimation:changeAnimation forKey:@"changeAnimation"];
+}
+    
+ 
 
 #if SDK_Above_10_0
 
 #pragma mark -  AVCapturePhotoCaptureDelegate
-
-/*!
- *   @brief 第一个运行的回调， 当设置  [self.photoOutput capturePhotoWithSettings:photoSettings delegate:self] 后回调，
- */
-- (void)captureOutput:(AVCapturePhotoOutput *)captureOutput willBeginCaptureForResolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings {
-    HELog(@"%s", __func__);
-}
-
-/*!
- *   @brief 开始拍照
- */
-- (void)captureOutput:(AVCapturePhotoOutput *)captureOutput willCapturePhotoForResolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings {
-    HELog(@"%s", __func__);
-}
-
-/*!
- *   @brief 拍照结束
- */
-- (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didCapturePhotoForResolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings {
-    HELog(@"%s", __func__);
-}
 
 /*!
  *   @brief 取出拍照的照片（已被处理过的图片）
@@ -1022,53 +1283,110 @@ NSString * const HESimpleCameraErrorDomain = @"HESimpleCameraErrorDomain";
     
     if (error) {
         [self passError:error];
-        self.BlockOnDidCaptured(self, nil, nil, error);
+        __weak typeof(self) weakSelf = self;
+        self.BlockOnDidCaptured(weakSelf, nil, nil, error);
         return;
     }
 
     [self handleCaptureWithPhotoSampleBuffer:photoSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
 }
 
-/*!
- *   @brief 取出拍照的照片（未经处理的图片），当setting中的'rawPhotoPixelFormatType'不为0时，此回调会将被使用, 但是 rawPhotoPixelFormatType 并不是所有的平台都支持, 而且，key-value也是固定值
- *          还需要通过 AVCapturePhotoOutput.availableRawPhotoPixelFormatTypes 方法来查看
- */
-- (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishProcessingRawPhotoSampleBuffer:(nullable CMSampleBufferRef)rawSampleBuffer previewPhotoSampleBuffer:(nullable CMSampleBufferRef)previewPhotoSampleBuffer resolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings bracketSettings:(nullable AVCaptureBracketedStillImageSettings *)bracketSettings error:(nullable NSError *)error {
-    if (error) {
-        [self passError:error];
-        self.BlockOnDidCaptured(self, nil, nil, error);
+#endif
+    
+#pragma mark - AVCaptureVideoDataOutputSampleBufferDelegate
+- (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
+
+    BOOL isVideo = YES;     // 用来区分是录音还是录像
+
+    @synchronized (self) {
+        if (!self.recording || self.paused) {
+            return;
+        }
+        if (captureOutput != self.videoDataOutput) {
+            isVideo = NO;
+        }
+        // 初始化编码器，当有音频和视频参数时创建编码器
+        if ((self.encoder == nil) && !isVideo) {
+            CMFormatDescriptionRef fmt = CMSampleBufferGetFormatDescription(sampleBuffer);
+            [self setAudioFormat:fmt];
+            self.videoPath = self.videoPath ?: [GetFilePath() stringByAppendingPathComponent:GetFileName()];
+            self.encoder = [HERecordEncoder encoderWithPath:self.videoPath width:_cx height:_cy channels:_channels rate:_samplerate];
+        }
+        
+        // 判断是否中断录制过
+        if (_interrupt) {
+            if (isVideo) {
+                return;
+            }
+            _interrupt = NO;
+            
+            
+            // 计算暂停的时间
+            CMTime pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
+            CMTime last = isVideo ? _lastVideo : _lastAudio;
+            if (last.flags & kCMTimeFlags_Valid) {
+                if (_timeOffset.flags & kCMTimeFlags_Valid) {
+                    pts = CMTimeSubtract(pts, _timeOffset);
+                }
+                CMTime offset = CMTimeSubtract(pts, last);
+                if (_timeOffset.value == 0) {
+                    _timeOffset = offset;
+                } else {
+                    _timeOffset = CMTimeAdd(_timeOffset, offset);
+                }
+            }
+            _lastVideo.flags = 0;
+            _lastAudio.flags = 0;
+        }
+        // 增加sampleBuffer的引用计时, 这样我们可以释放这个或修改这个数据，防止在修改时被释放
+        CFRetain(sampleBuffer);
+        if (_timeOffset.value > 0) {
+            CFRelease(sampleBuffer);
+            // 根据得到的timeOffset调整
+            sampleBuffer = [self adjustTime:sampleBuffer by:_timeOffset];
+        }
+        // 记录暂停上一次录制的时间
+        CMTime pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
+        CMTime dur = CMSampleBufferGetDuration(sampleBuffer);
+        if (dur.value > 0) {
+            pts = CMTimeAdd(pts, dur);
+        }
+        if (isVideo) {
+            _lastVideo = pts;
+        } else {
+            _lastAudio = pts;
+        }
+    }
+    CMTime dur = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
+    if (self.startTime.value == 0) {
+        self.startTime = dur;
+    }
+    CMTime sub = CMTimeSubtract(dur, self.startTime);
+    self.currentRecordTime = CMTimeGetSeconds(sub);
+    if (self.currentRecordTime > self.maxRecordTime) {
+        if (self.currentRecordTime - self.maxRecordTime < 0.1) {
+            
+            if (self.BlockOnProgressing) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    __weak typeof(self) weakSelf = self;
+                    weakSelf.BlockOnProgressing(weakSelf, weakSelf.maxRecordTime);
+                });
+            }
+        }
         return;
     }
+    if (self.BlockOnProgressing) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __weak typeof(self) weakSelf = self;
+            weakSelf.BlockOnProgressing(weakSelf, weakSelf.currentRecordTime);
+        });
+    }
     
+    _videoSize += CMSampleBufferGetTotalSampleSize(sampleBuffer);
+    // 进行数据编码
+    [self.encoder encodeFrame:sampleBuffer isVideo:isVideo];
+    CFRelease(sampleBuffer);
     
-//     NSData *data = [AVCapturePhotoOutput DNGPhotoDataRepresentationForRawSampleBuffer:rawSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
-//     UIImage *image = [UIImage imageWithData:data];
+}
     
-    
-    [self handleCaptureWithPhotoSampleBuffer:rawSampleBuffer previewPhotoSampleBuffer:previewPhotoSampleBuffer];
-}
-
-/*!
- *   @brief 录制完视频，但还没有存到本地的磁盘
- */
-- (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishRecordingLivePhotoMovieForEventualFileAtURL:(NSURL *)outputFileURL resolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings {
-    HELog(@"%s", __func__);
-}
-
-/*!
- *   @brief 录制完视频，并已经存到本地的磁盘
- */
-- (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishProcessingLivePhotoToMovieFileAtURL:(NSURL *)outputFileURL duration:(CMTime)duration photoDisplayTime:(CMTime)photoDisplayTime resolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings error:(nullable NSError *)error {
-    HELog(@"%s", __func__);
-}
-
-/*!
- *   @brief 所有的回调都执行完后，在走此方法
- */
-- (void)captureOutput:(AVCapturePhotoOutput *)captureOutput didFinishCaptureForResolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings error:(nullable NSError *)error {
-    HELog(@"%s", __func__);
-}
-
-#endif
-
 @end

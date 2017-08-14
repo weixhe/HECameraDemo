@@ -94,4 +94,29 @@ static inline NSBundle * CameraBundle() {
     return bundle;
 }
 
+/*!
+ *   @brief 获取，返回文件的名称（
+ */
+static inline NSString * GetFileName() {
+
+    NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+    NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
+    [formatter setDateFormat:@"HHmmss"];
+    NSDate * NowDate = [NSDate dateWithTimeIntervalSince1970:now];
+    NSString * timeStr = [formatter stringFromDate:NowDate];
+    NSString *fileName = [NSString stringWithFormat:@"%@.mp4",timeStr];
+    return fileName;
+}
+
+static inline NSString * GetFilePath () {
+    NSString *videoCache = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/he_videos"];
+    BOOL isDir = NO;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    BOOL existed = [fileManager fileExistsAtPath:videoCache isDirectory:&isDir];
+    if ( !(isDir == YES && existed == YES) ) {
+        [fileManager createDirectoryAtPath:videoCache withIntermediateDirectories:YES attributes:nil error:nil];
+    };
+    return videoCache;
+}
+
 #endif /* HECameraConstant_h */

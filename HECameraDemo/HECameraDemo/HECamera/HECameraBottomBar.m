@@ -47,7 +47,7 @@
     [self addSubview:self.cancelButton];
     
     self.settingButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.settingButton setImage:UIImageFromCameraBundle(@"settings") forState:UIControlStateNormal];
+    [self.settingButton setTitle:@"设置" forState:UIControlStateNormal];
     [self.settingButton addTarget:self action:@selector(onClickSettingAction:) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.settingButton];
     
@@ -65,14 +65,40 @@
     self.settingButton.center = CGPointMake(CGRectGetWidth(self.frame) - CGRectGetHeight(self.frame) / 2, CGRectGetHeight(self.frame) / 2);
 }
 
+#pragma mark - Setter
+- (void)setWantRecordVideo:(BOOL)wantRecordVideo {
+    _wantRecordVideo = wantRecordVideo;
+    if (_wantRecordVideo) {
+        [self.snapButton setImage:UIImageFromCameraBundle(@"camera-ready") forState:UIControlStateNormal];
+        [self.snapButton setImage:UIImageFromCameraBundle(@"camera-recording") forState:UIControlStateSelected];
+    } else {
+        [self.snapButton setImage:UIImageFromCameraBundle(@"cameraButton") forState:UIControlStateNormal];
+    }
+}
+
 #pragma mark - UIButton Action
 
 /*!
- *   @brief 按钮事件 - 拍照
+ *   @brief 按钮事件 - 拍照，录像
  */
 - (void)onSnapImageAction:(UIButton *)button {
-    if (self.BlockOnSnapImage) {
+    if (!self.wantRecordVideo && self.BlockOnSnapImage) {
         self.BlockOnSnapImage();
+    }
+    
+    if (self.wantRecordVideo && self.BlockOnRecordVideo)  {
+        button.selected = !button.selected;
+        if (button.selected == NO) {        // 准备，暂停
+            self.BlockOnRecordVideo(RecordVideoStatePause);
+            [self.snapButton setImage:UIImageFromCameraBundle(@"camera-pause") forState:UIControlStateNormal];
+
+        } else {        // 开始录制
+            self.BlockOnRecordVideo(RecordVideoStateRecording);
+            [self.settingButton setImage:nil forState:UIControlStateNormal];
+            [self.settingButton setTitle:@"完成" forState:UIControlStateNormal];
+            [self.settingButton removeTarget:self action:NULL forControlEvents:UIControlEventTouchUpInside];
+            [self.settingButton addTarget:self action:@selector(onClickFinishAction:) forControlEvents:UIControlEventTouchUpInside];
+        }
     }
 }
 
@@ -92,6 +118,19 @@
     if (self.BlockOnShowSettings) {
         self.BlockOnShowSettings();
     }
+}
+
+/*!
+ *   @brief 按钮事件 - 完成
+ */
+- (void)onClickFinishAction:(UIButton *)button {
+    if (self.wantRecordVideo && self.BlockOnRecordVideo)  {
+        self.BlockOnRecordVideo(RecordVideoStateFinish);
+    }
+    [self.snapButton setImage:UIImageFromCameraBundle(@"camera-ready") forState:UIControlStateNormal];
+    [self.settingButton setTitle:@"设置" forState:UIControlStateNormal];
+    [self.settingButton removeTarget:self action:NULL forControlEvents:UIControlEventTouchUpInside];
+    [self.settingButton addTarget:self action:@selector(onClickFinishAction:) forControlEvents:UIControlEventTouchUpInside];
 }
 
 @end
